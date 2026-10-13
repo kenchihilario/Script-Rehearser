@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rehearse AI — Intelligent Script Rehearsal & Speaker Coach</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Top Navigation & Controls Bar -->
+    <header class="app-header">
+        <div class="header-brand">
+            <div class="brand-logo-icon">🎙️</div>
+            <div class="brand-info">
+                <h1>REHEARSE<span>AI</span></h1>
+                <p class="brand-subtitle">Smart Script & Speaker Coach</p>
+            </div>
+            <div class="brand-tag">PowerPoint-Style Coach</div>
+        </div>
+
+        <div class="header-script-controls">
+            <div class="select-wrapper">
+                <select id="scriptSelect" class="script-dropdown" title="Select a rehearsal script">
+                    <!-- Loaded dynamically -->
+                </select>
+            </div>
+            <button id="btnNewScript" class="btn btn-secondary" title="Add a custom script">
+                <span class="btn-icon">➕</span> New Script
+            </button>
+            <button id="btnHistory" class="btn btn-secondary" title="View past rehearsal scores">
+                <span class="btn-icon">📊</span> History
+            </button>
+        </div>
+
+        <div class="header-session-actions">
+            <div class="session-timer-display" title="Elapsed rehearsal duration">
+                <span class="timer-dot"></span>
+                <span id="sessionTimer">00:00</span>
+            </div>
+            <button id="btnStart" class="btn btn-primary btn-glow">
+                <span class="btn-icon">▶️</span> Start Rehearsal
+            </button>
+            <button id="btnPause" class="btn btn-warning hidden">
+                <span class="btn-icon">⏸️</span> Pause
+            </button>
+            <button id="btnFinish" class="btn btn-danger hidden">
+                <span class="btn-icon">⏹️</span> Finish & Score
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Rehearsal Studio -->
+    <main class="studio-layout">
+        <!-- Left Section: Teleprompter & Live Speech Tracking -->
+        <section class="teleprompter-section">
+            <div class="prompter-toolbar">
+                <div class="toolbar-meta">
+                    <span id="scriptWordCount" class="badge badge-meta">0 words</span>
+                    <span id="scriptEstDuration" class="badge badge-meta">~0s</span>
+                </div>
+
+                <div class="toolbar-settings">
+                    <div class="setting-item">
+                        <label for="fontSizeSlider">Font Size</label>
+                        <input type="range" id="fontSizeSlider" min="18" max="44" value="26" step="2">
+                        <span id="fontSizeVal">26px</span>
+                    </div>
+                    <div class="setting-item">
+                        <label for="targetWpmInput">Target WPM</label>
+                        <input type="number" id="targetWpmInput" min="90" max="220" value="140" step="5">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Teleprompter Surface -->
+            <div class="prompter-viewport">
+                <div class="prompter-focal-line" title="Optimal reading focal zone"></div>
+                <div id="prompterContainer" class="prompter-content">
+                    <!-- Spoken words will highlight and scroll here -->
+                </div>
+            </div>
+
+            <!-- Pacing & Delivery Bar -->
+            <div class="pacing-hud-bar">
+                <div class="pacing-metric-card">
+                    <div class="metric-label">Speaking Pacing</div>
+                    <div class="metric-value-row">
+                        <span id="liveWpmValue" class="metric-huge">--</span>
+                        <span class="metric-unit">WPM</span>
+                        <span id="liveWpmStatus" class="stat-badge neutral">Ready</span>
+                    </div>
+                    <div class="wpm-bar-track">
+                        <div id="wpmGaugeBar" class="wpm-bar-fill"></div>
+                        <div class="wpm-target-notch" style="left: 63%;" title="Target: 140 WPM"></div>
+                    </div>
+                    <div class="wpm-scale-legend">
+                        <span>Slow (&lt;115)</span>
+                        <span>Ideal (130-160)</span>
+                        <span>Fast (&gt;175)</span>
+                    </div>
+                </div>
+
+                <div class="fluency-quick-stats">
+                    <div class="quick-stat-pill">
+                        <span class="pill-icon">🔄</span>
+                        <div class="pill-data">
+                            <span class="pill-label">Stutters Detected</span>
+                            <span id="liveStutterCount" class="pill-number">0</span>
+                        </div>
+                    </div>
+                    <div class="quick-stat-pill">
+                        <span class="pill-icon">⚠️</span>
+                        <div class="pill-data">
+                            <span class="pill-label">Filler Words</span>
+                            <span id="liveFillerCount" class="pill-number">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Section: Multimodal Diagnostic HUD (Camera & Audio) -->
+        <aside class="diagnostics-section">
+            <!-- Camera & Expression Analysis Card -->
+            <div class="hud-card camera-hud-card">
+                <div class="hud-card-header">
+                    <div class="card-title">
+                        <span class="card-icon">👁️</span> Facial Expression & Eye Contact
+                    </div>
+                    <span id="liveEyeContactStatus" class="stat-badge success">Direct Contact</span>
+                </div>
+
+                <div class="camera-stream-wrapper">
+                    <video id="webcamVideo" class="webcam-feed" playsinline muted autoplay></video>
+                    <canvas id="visionCanvas" class="vision-hud-canvas" width="480" height="360"></canvas>
+                    <div class="hud-reticle-overlay"></div>
+                </div>
+
+                <div class="camera-metrics-grid">
+                    <div class="camera-submetric">
+                        <span class="submetric-name">Warmth / Smile</span>
+                        <span id="liveSmileScore" class="submetric-val">--%</span>
+                    </div>
+                    <div class="camera-submetric">
+                        <span class="submetric-name">Expression State</span>
+                        <span id="liveExpressionState" class="submetric-val">Composed</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice Pitch & Tone Analysis Card -->
+            <div class="hud-card audio-hud-card">
+                <div class="hud-card-header">
+                    <div class="card-title">
+                        <span class="card-icon">🎵</span> Voice Tone & Pitch Inflection
+                    </div>
+                    <span id="liveToneStatus" class="stat-badge success">Active</span>
+                </div>
+
+                <div class="audio-visualizer-wrapper">
+                    <canvas id="audioCanvas" class="audio-oscilloscope" width="480" height="90"></canvas>
+                </div>
+
+                <div class="audio-metrics-grid">
+                    <div class="audio-submetric">
+                        <span class="submetric-name">Pitch ($F_0$)</span>
+                        <span id="livePitchHz" class="submetric-val">-- Hz</span>
+                    </div>
+                    <div class="audio-submetric">
+                        <span class="submetric-name">Dynamics</span>
+                        <span class="submetric-val">Rich Inflection</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rehearsal Tips & Checklist -->
+            <div class="hud-card checklist-card">
+                <div class="hud-card-header">
+                    <div class="card-title">
+                        <span class="card-icon">🎯</span> Real-Time Speaker Goals
+                    </div>
+                </div>
+                <ul class="speaker-goals-list">
+                    <li><span class="goal-bullet">•</span> Keep pace between 130 and 160 WPM</li>
+                    <li><span class="goal-bullet">•</span> Pause naturally to replace filler words</li>
+                    <li><span class="goal-bullet">•</span> Modulate pitch to prevent monotone delivery</li>
+                    <li><span class="goal-bullet">•</span> Smile warmly and maintain camera eye contact</li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Floating Real-Time Coach Nudge Toast (PowerPoint Speaker Coach Style) -->
+    <div id="coachTipBox" class="coach-tip-box">
+        <div id="coachTipIcon" class="tip-icon">💡</div>
+        <div id="coachTipText" class="tip-text">Welcome to Rehearse AI! Click Start Rehearsal to begin.</div>
+    </div>
+
+    <!-- 3-2-1 Countdown Overlay -->
+    <div id="countdownOverlay" class="countdown-overlay">
+        <div class="countdown-circle">
+            <span id="countdownNum" class="countdown-number">3</span>
+            <span class="countdown-label">Get Ready to Speak</span>
+        </div>
+    </div>
+
+    <!-- Rehearsal Scorecard & Performance Report Modal -->
+    <div id="reportModal" class="modal-overlay">
+        <div class="modal-dialog report-dialog">
+            <div class="report-header">
+                <div class="report-header-info">
+                    <h2>Rehearsal Performance Scorecard</h2>
+                    <p class="report-subtitle">Comprehensive multimodal analysis of your presentation delivery</p>
+                </div>
+                <button id="btnCloseReport" class="modal-close-btn" title="Close report">&times;</button>
+            </div>
+
+            <div class="report-body">
+                <!-- Top Summary: Score + Grade + Radar Chart -->
+                <div class="report-hero-grid">
+                    <div class="score-hero-card">
+                        <div class="overall-circle-container">
+                            <div class="score-circle">
+                                <span id="reportOverallScore" class="score-number">--</span>
+                                <span class="score-max">/100</span>
+                            </div>
+                        </div>
+                        <div class="grade-container">
+                            <span class="grade-label">Speaker Grade</span>
+                            <span id="reportGrade" class="grade-badge grade-a">A</span>
+                        </div>
+                    </div>
+
+                    <div class="radar-card">
+                        <div class="radar-header">Multimodal Competency Matrix</div>
+                        <canvas id="reportRadarCanvas" width="340" height="230"></canvas>
+                    </div>
+                </div>
+
+                <!-- Metrics Breakdown Grid -->
+                <div class="metrics-summary-grid">
+                    <div class="summary-metric-card">
+                        <span class="metric-icon">🗣️</span>
+                        <div class="metric-title">Speaking Pace</div>
+                        <div id="reportWpm" class="metric-stat">-- WPM</div>
+                        <div class="metric-sub">Target: 140 WPM</div>
+                    </div>
+
+                    <div class="summary-metric-card">
+                        <span class="metric-icon">🔄</span>
+                        <div class="metric-title">Stutters / False Starts</div>
+                        <div id="reportStutters" class="metric-stat">0</div>
+                        <div class="metric-sub">Repetitive hesitations</div>
+                    </div>
+
+                    <div class="summary-metric-card">
+                        <span class="metric-icon">⚠️</span>
+                        <div class="metric-title">Filler Words</div>
+                        <div id="reportFillers" class="metric-stat">0</div>
+                        <div class="metric-sub">"um", "uh", "like", etc.</div>
+                    </div>
+
+                    <div class="summary-metric-card">
+                        <span class="metric-icon">🎵</span>
+                        <div class="metric-title">Tone & Pitch Variety</div>
+                        <div id="reportToneScore" class="metric-stat">--/100</div>
+                        <div class="metric-sub">Monotone diagnostic</div>
+                    </div>
+
+                    <div class="summary-metric-card">
+                        <span class="metric-icon">👁️</span>
+                        <div class="metric-title">Eye Contact</div>
+                        <div id="reportEyeContact" class="metric-stat">--%</div>
+                        <div class="metric-sub">Audience engagement</div>
+                    </div>
+
+                    <div class="summary-metric-card">
+                        <span class="metric-icon">📜</span>
+                        <div class="metric-title">Script Fidelity</div>
+                        <div id="reportScriptAccuracy" class="metric-stat">--%</div>
+                        <div class="metric-sub">Content coverage</div>
+                    </div>
+                </div>
+
+                <!-- Stutter details breakdown -->
+                <div class="report-section-card">
+                    <h3><span class="section-icon">🔄</span> Fluency & Stutter Log</h3>
+                    <ul id="stutterDetailsList" class="stutter-log-list">
+                        <!-- Populated dynamically -->
+                    </ul>
+                </div>
+
+                <!-- Actionable Coaching Advice -->
+                <div class="report-section-card">
+                    <h3><span class="section-icon">💡</span> Personalized Coach Feedback</h3>
+                    <div id="reportTipsList" class="tips-container">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Spoken Transcript -->
+                <div class="report-section-card">
+                    <h3><span class="section-icon">📝</span> Spoken Transcript</h3>
+                    <div id="reportTranscript" class="transcript-box">
+                        <!-- Spoken text -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="report-footer">
+                <button id="btnExportReport" class="btn btn-secondary">
+                    <span class="btn-icon">📥</span> Export Markdown Report
+                </button>
+                <button id="btnRehearseAgain" class="btn btn-primary btn-glow">
+                    <span class="btn-icon">🔄</span> Rehearse Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Script Modal -->
+    <div id="scriptModal" class="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h2>Create Custom Rehearsal Script</h2>
+                <button id="btnCloseScriptModal" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newScriptTitle">Script Title</label>
+                    <input type="text" id="newScriptTitle" class="form-control" placeholder="e.g. Q3 Investor Update, Keynote Intro">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="newScriptCategory">Category</label>
+                        <input type="text" id="newScriptCategory" class="form-control" placeholder="e.g. Business, TED, Academic">
+                    </div>
+                    <div class="form-group">
+                        <label for="newScriptWpm">Target WPM</label>
+                        <input type="number" id="newScriptWpm" class="form-control" value="140" min="100" max="220">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="newScriptText">Script Content</label>
+                    <textarea id="newScriptText" class="form-control textarea-script" rows="8" placeholder="Paste or type your script here..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btnSaveCustomScript" class="btn btn-primary btn-glow">Save & Rehearse</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="modal-overlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h2>Rehearsal Session History</h2>
+                <button id="btnCloseHistoryModal" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="historyList" class="history-list-container">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Scripts -->
+    <script src="/static/js/teleprompter.js"></script>
+    <script src="/static/js/audio_coach.js"></script>
+    <script src="/static/js/vision_coach.js"></script>
+    <script src="/static/js/speech_coach.js"></script>
+    <script src="/static/js/scorecard.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

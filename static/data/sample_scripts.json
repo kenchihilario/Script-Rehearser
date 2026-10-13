@@ -1,0 +1,38 @@
+[
+  {
+    "id": "startup_pitch",
+    "title": "Tech Startup Pitch: Rehearse AI",
+    "category": "Business & Pitch",
+    "difficulty": "Intermediate",
+    "targetWpm": 145,
+    "description": "A high-energy 2-minute elevator pitch for an AI communication coach to secure venture capital funding.",
+    "text": "Good morning investors. Every year, over seventy percent of professionals report severe anxiety when presenting to high-stakes audiences. Pitch meetings fail, career opportunities vanish, and brilliant ideas get lost in nervous delivery.\n\nToday, we are introducing Rehearse AI: the intelligent real-time rehearsal coach that analyzes not just what you say, but how you say it. Using computer vision and biometric speech diagnostics, our platform tracks your facial expressions, detects stutters and filler words, and gauges vocal pitch variety in real time.\n\nImagine having a private executive speech coach available twenty-four seven in your pocket. We are addressing a forty-two billion dollar corporate communications market. In our beta launch, over ten thousand speakers improved their delivery scores by forty percent within two weeks.\n\nWe are raising two million dollars in seed capital to accelerate enterprise integrations and revolutionize how the world speaks. Join us in transforming confidence into impact. Thank you."
+  },
+  {
+    "id": "ted_talk",
+    "title": "TED Talk Opening: The Power of Expression",
+    "category": "Inspirational",
+    "difficulty": "Advanced",
+    "targetWpm": 135,
+    "description": "An engaging, emotionally resonant opening that demands warm eye contact, expressive tone, and deliberate pacing.",
+    "text": "Have you ever wondered what happens in the first three seconds when you walk into a room? Before you utter a single syllable, everyone in the audience has already made up their mind about whether to trust you.\n\nIt is not the words that captivate us. It is the warmth in someone's eyes. It is the subtle smile that signals safety, the rhythmic cadence of a voice that carries deep conviction, and the courageous pauses between sentences that give ideas room to breathe.\n\nFor most of my life, I believed that great speakers were born with a rare gift. But science tells us a very different story. Charisma is not magic. Charisma is a muscle. And when you master the music of your voice and the authenticity of your face, you do not just deliver a speech. You change minds."
+  },
+  {
+    "id": "product_demo",
+    "title": "Product Launch: Keynote Demo",
+    "category": "Product Launch",
+    "difficulty": "Easy",
+    "targetWpm": 150,
+    "description": "Clear, crisp, and energetic product walkthrough emphasizing clarity, enthusiasm, and zero filler words.",
+    "text": "We designed this product around one simple obsession: seamless simplicity. For the past eighteen months, our engineering team rebuilt our interface from the ground up to eliminate every friction point.\n\nNotice how instantly the dashboard responds. With just one click, your entire workflow synchronizes across every device. We cut processing latency by sixty-five percent while doubling battery efficiency.\n\nThis is not merely an incremental update. This is the new benchmark for how modern software should feel. Fast, elegant, and effortlessly powerful. Starting today, it is available to every user worldwide."
+  },
+  {
+    "id": "academic_defense",
+    "title": "Research & Thesis Defense",
+    "category": "Academic",
+    "difficulty": "Intermediate",
+    "targetWpm": 140,
+    "description": "Professional, articulate defense statement requiring steady pace, clear enunciation, and authoritative vocal projection.",
+    "text": "Distinguished committee members and colleagues, thank you for your presence today. This research investigates the cognitive impacts of multimodal biofeedback on verbal communication performance.\n\nPrior empirical studies have demonstrated that auditory and visual feedback loops can accelerate learning by up to forty percent. However, the exact neural mechanisms governing real-time adaptation remained largely unquantified in natural speaking environments.\n\nAcross three randomized controlled trials involving five hundred participants, our findings demonstrate a statistically significant reduction in vocal tremor and hesitation pauses when visual guidance is presented non-intrusively. I look forward to your questions as we delve into the methodology and longitudinal implications."
+  }
+]

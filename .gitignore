@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+data/user_scripts.json
+data/rehearsal_history.json
+reports/*.md
+.DS_Store

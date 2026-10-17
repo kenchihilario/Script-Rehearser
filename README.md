@@ -64,7 +64,7 @@ Custom script builder so you can paste your own speeches
 Why this exists
 I wanted something with actual PowerPoint Speaker Coach-style multimodal feedback that I could run locally on any custom script without needing an enterprise Microsoft 365 subscription or sending audio to third-party cloud services. I also specifically wanted stutter detection and facial warmth tracking, which most speech tools ignore. Plus, it gave me an excuse to play with time-domain autocorrelation in the Web Audio API and build a dense, responsive cyber HUD.
 
-Expect this to keep changing shape as I go — I'm figuring a lot of it out as I build.
+Expect this to keep changing shape as I go. I'm figuring a lot of it out as I build.
 
 Status
 Actively being worked on. Nothing here is final.

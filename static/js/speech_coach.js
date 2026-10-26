@@ -1,40 +1,31 @@
-/**
- * SpeechCoach - Real-Time Fluency, Stutter, Filler Word & Pacing Diagnostic Engine
- * Inspired by Microsoft PowerPoint Speaker Coach with advanced stutter identification.
- */
+
 class SpeechCoach {
     constructor() {
         this.recognition = null;
         this.isListening = false;
         this.startTime = null;
-
-        // Transcript tracking
+        this.activeElapsedMs = 0;
+        this.activeSegmentStartedAt = 0;
+        this.acceptFinalResults = false;
+        this.pendingStopResolve = null;
         this.fullTranscript = "";
         this.spokenWords = [];
         this.wordTimestamps = [];
-
-        // Metrics
         this.fillerCounts = {};
         this.totalFillers = 0;
         this.stutterEvents = [];
         this.totalStutters = 0;
         this.lastSpokenWord = "";
         this.lastWordTime = 0;
-
-        // Script alignment
         this.scriptTokens = [];
         this.scriptWordMap = new Map();
         this.matchedScriptIndices = new Set();
         this.targetWpm = 140;
-
-        // Pacing
         this.currentWpm = 0;
-        this.rollingWordWindow = []; // [{ word, time }]
+        this.rollingWordWindow = [];
         this.lastPacingAlertTime = 0;
         this.lastFillerAlertTime = 0;
         this.lastStutterAlertTime = 0;
-
-        // Callbacks
         this.onSpeechResult = null;
         this.onCoachTip = null;
         this.onWordMatched = null;
@@ -76,6 +67,8 @@ class SpeechCoach {
                 try {
                     this.recognition.start();
                 } catch (e) {}
+            } else if (this.acceptFinalResults && this.pendingStopResolve) {
+                this.pendingStopResolve();
             }
         };
 
@@ -92,19 +85,29 @@ class SpeechCoach {
         this.matchedScriptIndices.clear();
     }
 
-    start() {
+    start(resumeSession = false) {
+        const now = Date.now();
+        this.acceptFinalResults = false;
+        if (resumeSession) {
+            if (this.isListening) return;
+            this.startTime = now - this.activeElapsedMs;
+        } else {
+            this.activeElapsedMs = 0;
+            this.startTime = now;
+            this.fullTranscript = "";
+            this.spokenWords = [];
+            this.wordTimestamps = [];
+            this.fillerCounts = {};
+            this.totalFillers = 0;
+            this.stutterEvents = [];
+            this.totalStutters = 0;
+            this.rollingWordWindow = [];
+            this.lastSpokenWord = "";
+            this.lastWordTime = now;
+        }
+
         this.isListening = true;
-        this.startTime = Date.now();
-        this.fullTranscript = "";
-        this.spokenWords = [];
-        this.wordTimestamps = [];
-        this.fillerCounts = {};
-        this.totalFillers = 0;
-        this.stutterEvents = [];
-        this.totalStutters = 0;
-        this.rollingWordWindow = [];
-        this.lastSpokenWord = "";
-        this.lastWordTime = Date.now();
+        this.activeSegmentStartedAt = now;
 
         if (this.recognition) {
             try {
@@ -116,16 +119,49 @@ class SpeechCoach {
     }
 
     stop() {
+        if (this.isListening) {
+            this.activeElapsedMs += Date.now() - this.activeSegmentStartedAt;
+        }
         this.isListening = false;
-        if (this.recognition) {
+        if (!this.recognition) return Promise.resolve();
+        this.acceptFinalResults = true;
+        return new Promise((resolve) => {
+            let timeoutId;
+            const finish = () => {
+                clearTimeout(timeoutId);
+                this.acceptFinalResults = false;
+                this.pendingStopResolve = null;
+                resolve();
+            };
+            this.pendingStopResolve = finish;
+            timeoutId = setTimeout(finish, 700);
             try {
                 this.recognition.stop();
-            } catch (e) {}
-        }
+            } catch (e) {
+                finish();
+            }
+        });
+    }
+
+    async pause() {
+        await this.stop();
+        if (this.startTime) this.startTime = Date.now() - this.activeElapsedMs;
+    }
+
+    clearTranscript() {
+        this.fullTranscript = "";
+        this.spokenWords = [];
+        this.wordTimestamps = [];
+        this.fillerCounts = {};
+        this.totalFillers = 0;
+        this.stutterEvents = [];
+        this.totalStutters = 0;
+        this.rollingWordWindow = [];
+        this.lastSpokenWord = "";
     }
 
     _handleSpeechResult(event) {
-        if (!this.isListening) return;
+        if (!this.isListening && !this.acceptFinalResults) return;
 
         let interim = "";
         let finalChunk = "";
@@ -143,7 +179,7 @@ class SpeechCoach {
             this._processWords(finalChunk.trim());
         }
 
-        if (this.onSpeechResult) {
+        if (this.onSpeechResult && (this.isListening || finalChunk.trim())) {
             this.onSpeechResult({
                 fullTranscript: this.fullTranscript,
                 interimText: interim,
@@ -171,29 +207,18 @@ class SpeechCoach {
             };
             this.spokenWords.push(wordObj);
             this.rollingWordWindow.push({ word: cleanWord, timestamp: now });
-
-            // 1. STUTTER & REPETITION DETECTION
             this._checkStutter(cleanWord, rawWord, now);
-
-            // 2. FILLER WORD DETECTION
             this._checkFiller(cleanWord, rawWord, now);
-
-            // 3. SCRIPT ALIGNMENT
             this._alignWithScript(cleanWord);
 
             this.lastSpokenWord = cleanWord;
             this.lastWordTime = now;
         }
-
-        // 4. PACING (WPM) CALCULATION
         this._updatePacing(now);
     }
 
     _checkStutter(cleanWord, rawWord, now) {
-        // Immediate word repetition: "the the", "I I", "we we"
         const isRepeated = (this.lastSpokenWord && cleanWord === this.lastSpokenWord);
-
-        // Syllable/hyphenated false start: "w-we", "th-the"
         const isHyphenStutter = rawWord.includes("-") && rawWord.length > 2;
 
         if (isRepeated || isHyphenStutter) {
@@ -211,7 +236,7 @@ class SpeechCoach {
                     this.onCoachTip({
                         category: "stutter",
                         type: "warning",
-                        icon: "🔄",
+                        icon: "repeat",
                         message: `Stutter detected on "${cleanWord}". Take a relaxed breath and restart the phrase smoothly.`
                     });
                 }
@@ -230,7 +255,7 @@ class SpeechCoach {
                     this.onCoachTip({
                         category: "filler",
                         type: "warning",
-                        icon: "⚠️",
+                        icon: "alert",
                         message: `Filler word noticed: "${cleanWord}". Try replacing it with a brief pause.`
                     });
                 }
@@ -240,8 +265,6 @@ class SpeechCoach {
 
     _alignWithScript(cleanWord) {
         if (!this.scriptTokens.length) return;
-
-        // Search for nearest unaligned match in script tokens
         const searchRange = 8;
         let bestIndex = -1;
         const lastMatched = this.matchedScriptIndices.size ? Math.max(...this.matchedScriptIndices) : 0;
@@ -266,19 +289,14 @@ class SpeechCoach {
     }
 
     _updatePacing(now) {
-        // Purge words older than 20 seconds from rolling window
         const cutoff = now - 20000;
         this.rollingWordWindow = this.rollingWordWindow.filter(w => w.timestamp >= cutoff);
 
         const elapsedSec = (now - this.startTime) / 1000;
         if (elapsedSec < 3) return;
-
-        // Rolling WPM
         const rollingSec = Math.min(20, elapsedSec);
         const rollingWpm = Math.round((this.rollingWordWindow.length / (rollingSec / 60)));
         this.currentWpm = rollingWpm;
-
-        // Pacing Coaching Alerts (every 10s max)
         if (now - this.lastPacingAlertTime > 10000 && elapsedSec > 8) {
             this.lastPacingAlertTime = now;
             if (this.currentWpm < 115) {
@@ -286,7 +304,7 @@ class SpeechCoach {
                     this.onCoachTip({
                         category: "pace",
                         type: "warning",
-                        icon: "🐢",
+                        icon: "gauge",
                         message: `Pacing is a bit slow (${this.currentWpm} WPM). Aim for 130–160 WPM to keep listeners engaged.`
                     });
                 }
@@ -295,7 +313,7 @@ class SpeechCoach {
                     this.onCoachTip({
                         category: "pace",
                         type: "warning",
-                        icon: "⚡",
+                        icon: "activity",
                         message: `Speaking very fast (${this.currentWpm} WPM). Slow down and enunciate key takeaways.`
                     });
                 }
@@ -304,7 +322,7 @@ class SpeechCoach {
                     this.onCoachTip({
                         category: "pace",
                         type: "success",
-                        icon: "🎯",
+                        icon: "target",
                         message: `Terrific cadence (${this.currentWpm} WPM)! Your pacing sounds natural and confident.`
                     });
                 }
@@ -316,21 +334,15 @@ class SpeechCoach {
         const totalDurationSec = this.startTime ? (Date.now() - this.startTime) / 1000 : 0;
         const totalDurationMin = Math.max(0.1, totalDurationSec / 60);
         const overallWpm = Math.round(this.spokenWords.length / totalDurationMin);
-
-        // Pacing Score (0-100)
         let pacingScore = 100;
         const diffFromTarget = Math.abs(overallWpm - this.targetWpm);
         if (diffFromTarget > 10) {
             pacingScore = Math.max(30, Math.round(100 - (diffFromTarget - 10) * 1.8));
         }
-
-        // Fluency Score (penalized for fillers and stutters per minute)
         const stuttersPerMin = this.totalStutters / totalDurationMin;
         const fillersPerMin = this.totalFillers / totalDurationMin;
         let fluencyScore = Math.round(100 - (stuttersPerMin * 12 + fillersPerMin * 6));
         fluencyScore = Math.max(25, Math.min(100, fluencyScore));
-
-        // Script Accuracy
         let scriptAccuracy = 0;
         if (this.scriptTokens.length > 0) {
             scriptAccuracy = Math.round((this.matchedScriptIndices.size / this.scriptTokens.length) * 100);

@@ -1,7 +1,4 @@
-/**
- * Scorecard - Comprehensive Rehearsal Assessment & Report Generator
- * Integrates Audio, Vision, and Speech diagnostics into a PowerPoint Speaker Coach style report.
- */
+
 class Scorecard {
     constructor() {}
 
@@ -11,8 +8,6 @@ class Scorecard {
         const toneScore = audioSummary.toneScore || 75;
         const expressionScore = visionSummary.expressionScore || 75;
         const scriptScore = speechSummary.scriptAccuracy || 90;
-
-        // Weighted overall index
         const overall = Math.round(
             (fluencyScore * 0.30) +
             (pacingScore * 0.20) +
@@ -44,25 +39,21 @@ class Scorecard {
 
     static generateActionableTips(speechSummary, audioSummary, visionSummary) {
         const tips = [];
-
-        // 1. Stutter & Fluency advice
         if (speechSummary.totalStutters > 2) {
             tips.push({
                 category: "Fluency",
-                icon: "🔄",
+                icon: "repeat",
                 title: "Reduce Repeated Starts",
                 detail: `Detected ${speechSummary.totalStutters} stuttered repetitions. Practice taking a deliberate 1-second diaphragmatic breath before transitioning into new ideas.`
             });
         } else if (speechSummary.totalStutters === 0) {
             tips.push({
                 category: "Fluency",
-                icon: "✨",
+                icon: "check",
                 title: "Exceptional Clean Delivery",
                 detail: "Zero stuttered phrases or false starts detected. Your speech flowed smoothly and confidently."
             });
         }
-
-        // 2. Filler words advice
         if (speechSummary.totalFillers > 3) {
             const topFillers = Object.entries(speechSummary.fillerBreakdown || {})
                 .sort((a, b) => b[1] - a[1])
@@ -72,58 +63,52 @@ class Scorecard {
 
             tips.push({
                 category: "Filler Words",
-                icon: "⚠️",
+                icon: "alert",
                 title: "Eliminate Crutch Words",
                 detail: `You used ${speechSummary.totalFillers} filler words, most notably ${topFillers || 'um/uh'}. Replace fillers with intentional pauses — silence commands respect.`
             });
         }
-
-        // 3. Pacing advice
         if (speechSummary.overallWpm < 120) {
             tips.push({
                 category: "Pacing",
-                icon: "🐢",
+                icon: "gauge",
                 title: "Increase Cadence",
                 detail: `Your average pace was ${speechSummary.overallWpm} WPM (target is ~140 WPM). Increasing your tempo slightly will inject more urgency and dynamism into your delivery.`
             });
         } else if (speechSummary.overallWpm > 170) {
             tips.push({
                 category: "Pacing",
-                icon: "⚡",
+                icon: "activity",
                 title: "Pace Yourself",
                 detail: `Speaking at ${speechSummary.overallWpm} WPM can overwhelm listeners. Slow down around critical definitions and punchlines so audiences can absorb them.`
             });
         } else {
             tips.push({
                 category: "Pacing",
-                icon: "🎯",
+                icon: "target",
                 title: "Ideal Conversational Tempo",
                 detail: `Your delivery clocked in at a crisp ${speechSummary.overallWpm} WPM. This matches the benchmark used by professional TED and keynote presenters.`
             });
         }
-
-        // 4. Vocal tone & pitch variety advice
         if (audioSummary.pitchMonotone) {
             tips.push({
                 category: "Tone of Voice",
-                icon: "📢",
+                icon: "activity",
                 title: "Add Vocal Pitch Modulation",
                 detail: `Your vocal pitch variation was low (${audioSummary.pitchVariabilityHz} Hz). Monotone delivery can cause audience fatigue. Elevate your pitch on rhetorical questions and drop it on declarations.`
             });
         } else {
             tips.push({
                 category: "Tone of Voice",
-                icon: "🎵",
+                icon: "activity",
                 title: "Engaging Vocal Melody",
                 detail: `Excellent vocal variety detected (${audioSummary.pitchVariabilityHz} Hz pitch variance). Your vocal inflection effectively highlights emphasis.`
             });
         }
-
-        // 5. Facial expression & Eye contact advice
-        if (visionSummary.eyeContactPercentage < 70) {
+        if (visionSummary.eyeContactPercentage != null && visionSummary.eyeContactPercentage < 70) {
             tips.push({
                 category: "Eye Contact",
-                icon: "👁️",
+                icon: "eye",
                 title: "Maintain Direct Camera Gaze",
                 detail: `Eye contact was at ${visionSummary.eyeContactPercentage}%. Try memorizing your opening sentences so you can look directly into the camera lens rather than scanning down at text.`
             });
@@ -131,14 +116,14 @@ class Scorecard {
         if (visionSummary.avgSmileScore < 20) {
             tips.push({
                 category: "Facial Expression",
-                icon: "😊",
+                icon: "smile",
                 title: "Incorporate Warmth",
                 detail: "Your facial expression remained relatively serious throughout. Smiling at greetings and positive conclusions helps build emotional rapport with listeners."
             });
         } else {
             tips.push({
                 category: "Facial Expression",
-                icon: "🌟",
+                icon: "check",
                 title: "Charismatic Presence",
                 detail: "Strong facial engagement and natural smiles detected. You appeared confident, relatable, and poised."
             });
@@ -162,8 +147,6 @@ class Scorecard {
         const keys = ["fluency", "pacing", "tone", "expression", "script"];
         const numAxes = labels.length;
         const angleStep = (Math.PI * 2) / numAxes;
-
-        // Draw concentric web polygons
         ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
         ctx.lineWidth = 1;
 
@@ -180,8 +163,6 @@ class Scorecard {
             ctx.closePath();
             ctx.stroke();
         }
-
-        // Draw radial axis spokes and labels
         ctx.fillStyle = "#94a3b8";
         ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = "center";
@@ -196,14 +177,10 @@ class Scorecard {
             ctx.moveTo(centerX, centerY);
             ctx.lineTo(x, y);
             ctx.stroke();
-
-            // Label positioning
             const labelX = centerX + Math.cos(angle) * (radius + 24);
             const labelY = centerY + Math.sin(angle) * (radius + 16);
             ctx.fillText(labels[i], labelX, labelY);
         }
-
-        // Draw user performance polygon
         const points = [];
         for (let i = 0; i < numAxes; i++) {
             const key = keys[i];
@@ -214,8 +191,6 @@ class Scorecard {
             const y = centerY + Math.sin(angle) * (radius * normScore);
             points.push({ x, y, score });
         }
-
-        // Fill radar shape with glowing gradient
         const grad = ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, radius);
         grad.addColorStop(0, "rgba(99, 102, 241, 0.45)");
         grad.addColorStop(1, "rgba(6, 182, 212, 0.20)");
@@ -228,13 +203,9 @@ class Scorecard {
         });
         ctx.closePath();
         ctx.fill();
-
-        // Stroke radar polygon outline
         ctx.strokeStyle = "#06b6d4";
         ctx.lineWidth = 2.5;
         ctx.stroke();
-
-        // Data point glow circles
         points.forEach(pt => {
             ctx.fillStyle = "#8b5cf6";
             ctx.beginPath();

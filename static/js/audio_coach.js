@@ -1,7 +1,4 @@
-/**
- * AudioCoach - Real-Time Vocal Pitch, Tone Inflection & Dynamics Analyzer
- * Uses Web Audio API with time-domain autocorrelation for fundamental frequency (F0) tracking.
- */
+
 class AudioCoach {
     constructor() {
         this.audioCtx = null;
@@ -10,13 +7,11 @@ class AudioCoach {
         this.mediaStream = null;
         this.isRunning = false;
         this.animFrameId = null;
-
-        // Analysis state
         this.pitchHistory = [];
         this.volumeHistory = [];
-        this.recentPitches = []; // last 50 pitch detections for short-term inflection
-        this.monotoneThresholdHz = 16; // std-dev under 16 Hz = monotone
-        this.expressiveThresholdHz = 28; // std-dev > 28 Hz = expressive
+        this.recentPitches = [];
+        this.monotoneThresholdHz = 16;
+        this.expressiveThresholdHz = 28;
         this.canvas = null;
         this.canvasCtx = null;
 
@@ -71,8 +66,6 @@ class AudioCoach {
             this.audioCtx = null;
         }
     }
-
-    // Autocorrelation algorithm for pitch detection (fundamental frequency F0)
     _autoCorrelate(buf, sampleRate) {
         let SIZE = buf.length;
         let rms = 0;
@@ -82,7 +75,7 @@ class AudioCoach {
             rms += val * val;
         }
         rms = Math.sqrt(rms / SIZE);
-        if (rms < 0.015) { // silence or noise floor
+        if (rms < 0.015) {
             return { pitch: -1, rms: rms };
         }
 
@@ -114,15 +107,12 @@ class AudioCoach {
             }
         }
         let T0 = maxpos;
-
-        // Parabolic interpolation for fine frequency resolution
         let x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
         let a = (x1 + x3 - 2 * x2) / 2;
         let b = (x3 - x1) / 2;
         if (a) T0 = T0 - b / (2 * a);
 
         let pitch = sampleRate / T0;
-        // Human voice fundamental pitch range is roughly 65 Hz to 420 Hz
         if (pitch >= 65 && pitch <= 420) {
             return { pitch: Math.round(pitch), rms: rms };
         }
@@ -153,8 +143,6 @@ class AudioCoach {
             }
         }
         this.volumeHistory.push(volumeDb);
-
-        // Evaluate Tone Inflection
         let pitchStdDev = 0;
         let toneStatus = "Normal";
         let toneScore = 80;
@@ -172,7 +160,7 @@ class AudioCoach {
                         this.onCoachTip({
                             category: "tone",
                             type: "warning",
-                            icon: "📢",
+                            icon: "activity",
                             message: "Tone is sounding flat. Add vocal melody and pitch inflection for emphasis!"
                         });
                     }
@@ -185,8 +173,6 @@ class AudioCoach {
                 toneScore = 85;
             }
         }
-
-        // Volume check
         let volumeStatus = "Good Projection";
         if (volumeDb < -42 && rms > 0.005) {
             volumeStatus = "Low Volume (Speak louder)";
@@ -217,8 +203,6 @@ class AudioCoach {
         const height = this.canvas.height;
 
         ctx.clearRect(0, 0, width, height);
-
-        // Draw neon oscilloscope waveform
         ctx.lineWidth = 2.5;
         const gradient = ctx.createLinearGradient(0, 0, width, 0);
         gradient.addColorStop(0, '#06b6d4');
@@ -242,8 +226,6 @@ class AudioCoach {
             x += sliceWidth;
         }
         ctx.stroke();
-
-        // If pitch detected, render glowing target frequency readout
         if (currentPitch > 0) {
             ctx.fillStyle = '#a78bfa';
             ctx.font = '600 11px "JetBrains Mono", monospace';

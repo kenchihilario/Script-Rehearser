@@ -1,338 +1,270 @@
-/**
- * VisionCoach - Computer Vision & Facial Expression Diagnostic Engine
- * Analyzes webcam feed in real time for Smiles, Facial Expressiveness, Eye Contact & Head Posture.
- */
+
 class VisionCoach {
     constructor() {
         this.video = null;
         this.canvas = null;
         this.ctx = null;
         this.stream = null;
+        this.landmarker = null;
         this.isRunning = false;
         this.animId = null;
-
-        // Visual metrics history
+        this.lastInferenceAt = 0;
+        this.lastFaceCenter = null;
         this.smileSamples = [];
         this.eyeContactSamples = [];
         this.expressionVarianceSamples = [];
-
-        // Current real-time states
-        this.currentSmileScore = 0;       // 0 to 100
-        this.isEyeContact = true;
-        this.expressionState = "Neutral";  // "Warm Smile", "Engaged / Expressive", "Neutral", "Looking Away"
+        this.currentSmileScore = 0;
+        this.isEyeContact = null;
+        this.gazeStatus = "Loading eye tracking…";
+        this.expressionState = "Waiting for camera";
         this.faceDetected = false;
-
-        // Optical flow / motion tracking
-        this.lastFrameGray = null;
-        this.faceBox = { x: 0.25, y: 0.15, w: 0.5, h: 0.7 }; // normalized
-
-        // Callbacks & alert timers
         this.onMetricsUpdate = null;
         this.onCoachTip = null;
         this.lastEyeContactAlert = 0;
-        this.lastSmileAlert = 0;
-        this.lastFrozenAlert = 0;
     }
 
     async init(videoElement, canvasElement, stream, callbacks = {}) {
         this.video = videoElement;
         this.canvas = canvasElement;
-        if (this.canvas) {
-            this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
-        }
+        this.ctx = this.canvas?.getContext("2d");
         this.stream = stream;
         this.onMetricsUpdate = callbacks.onMetricsUpdate || null;
         this.onCoachTip = callbacks.onCoachTip || null;
-
-        if (this.video && this.stream) {
-            this.video.srcObject = this.stream;
-            try {
-                await this.video.play();
-            } catch (e) {
-                console.warn("Video play notice:", e);
-            }
-        }
-
         this.smileSamples = [];
         this.eyeContactSamples = [];
         this.expressionVarianceSamples = [];
+        this.lastFaceCenter = null;
         this.isRunning = true;
 
+        if (this.video && this.stream) {
+            this.video.srcObject = this.stream;
+            try { await this.video.play(); } catch (error) { console.warn("Video play notice:", error); }
+        }
+
+        this._publishMetrics();
         this._processLoop();
+        this._loadLandmarker().catch((error) => {
+            console.warn("Local face tracking could not start:", error);
+            this.gazeStatus = "Gaze estimate unavailable";
+            this.expressionState = "Face tracking unavailable";
+            this._publishMetrics();
+        });
         return true;
+    }
+
+    async _loadLandmarker() {
+        const { FaceLandmarker, FilesetResolver } = await import(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/vision_bundle.mjs"
+        );
+        const fileset = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm"
+        );
+        this.landmarker = await FaceLandmarker.createFromOptions(fileset, {
+            baseOptions: {
+                modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+                delegate: "CPU"
+            },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            outputFaceBlendshapes: true
+        });
     }
 
     stop() {
         this.isRunning = false;
-        if (this.animId) {
-            cancelAnimationFrame(this.animId);
-            this.animId = null;
-        }
-        if (this.video) {
-            this.video.srcObject = null;
-        }
+        if (this.animId) cancelAnimationFrame(this.animId);
+        this.animId = null;
+        this.landmarker?.close();
+        this.landmarker = null;
+        if (this.video) this.video.srcObject = null;
     }
 
     _processLoop() {
         if (!this.isRunning) return;
-
-        if (this.video && this.video.readyState >= 2 && this.canvas && this.ctx) {
-            const w = this.canvas.width;
-            const h = this.canvas.height;
-
-            // Draw video frame to canvas
+        const w = this.canvas?.width || 0;
+        const h = this.canvas?.height || 0;
+        if (this.video?.readyState >= 2 && this.canvas && this.ctx && w && h) {
             this.ctx.save();
-            // Mirror image horizontally for intuitive mirror view
             this.ctx.translate(w, 0);
             this.ctx.scale(-1, 1);
             this.ctx.drawImage(this.video, 0, 0, w, h);
             this.ctx.restore();
 
-            // Perform computer vision analysis on face region
-            this._analyzeFrame(w, h);
+            const now = performance.now();
+            if (this.landmarker && now - this.lastInferenceAt >= 220) {
+                this.lastInferenceAt = now;
+                try {
+                    const result = this.landmarker.detectForVideo(this.video, now);
+                    this._readLandmarks(result, w, h);
+                } catch (error) {
+                    console.warn("Eye tracking frame skipped:", error);
+                }
+            } else if (!this.landmarker) {
+                this.ctx.clearRect(0, 0, w, h);
+            }
         }
-
         this.animId = requestAnimationFrame(() => this._processLoop());
     }
 
-    _analyzeFrame(w, h) {
-        // Sample image data for luminosity and facial feature tracking
-        let imgData;
-        try {
-            imgData = this.ctx.getImageData(0, 0, w, h);
-        } catch (e) {
+    _readLandmarks(result, width, height) {
+        const landmarks = result.faceLandmarks?.[0];
+        if (!landmarks || landmarks.length < 478) {
+            this.faceDetected = false;
+            this.isEyeContact = null;
+            this.gazeStatus = "Face not detected";
+            this.expressionState = "Move into the camera view";
+            this.lastFaceCenter = null;
+            this._publishMetrics();
+            this._renderFrameStatus(width, height);
             return;
         }
 
-        const data = imgData.data;
-        this.faceDetected = true; // Video stream is active
-
-        // Calculate center-face zone dynamics
-        // Face ROI in middle: [0.25*w .. 0.75*w], [0.15*h .. 0.85*h]
-        const fx = Math.floor(w * 0.25);
-        const fy = Math.floor(h * 0.15);
-        const fw = Math.floor(w * 0.50);
-        const fh = Math.floor(h * 0.70);
-
-        // Sub-regions: Mouth zone (lower 35% of face), Eyes zone (upper 40% of face)
-        const eyeZoneY = fy + Math.floor(fh * 0.20);
-        const eyeZoneH = Math.floor(fh * 0.25);
-        const mouthZoneY = fy + Math.floor(fh * 0.62);
-        const mouthZoneH = Math.floor(fh * 0.28);
-
-        // 1. Analyze Mouth zone for Smile curvature & lip expansion
-        // Smile expands lip contrast, raises cheek luminosity, and widens corner markers
-        let mouthBrightness = 0;
-        let mouthRedness = 0;
-        let mouthPixels = 0;
-
-        for (let y = mouthZoneY; y < mouthZoneY + mouthZoneH; y += 3) {
-            for (let x = fx; x < fx + fw; x += 3) {
-                const idx = (y * w + x) * 4;
-                const r = data[idx];
-                const g = data[idx + 1];
-                const b = data[idx + 2];
-                const lum = (0.299 * r + 0.587 * g + 0.114 * b);
-                mouthBrightness += lum;
-                if (r > g + 15 && r > b + 15) {
-                    mouthRedness++;
-                }
-                mouthPixels++;
-            }
+        this.faceDetected = true;
+        const gaze = this._estimateGaze(landmarks);
+        this.isEyeContact = gaze;
+        this.gazeStatus = gaze === null
+            ? "Gaze estimate unavailable"
+            : gaze ? "Direct Eye Contact" : "Looking Away";
+        if (gaze !== null) {
+            this.eyeContactSamples.push(gaze ? 1 : 0);
+            if (this.eyeContactSamples.length > 180) this.eyeContactSamples.shift();
         }
 
-        // 2. Optical motion variance across face (Detecting lively expressions vs stone face)
-        let frameMotion = 0;
-        const currentGray = new Float32Array(fw * fh);
-        let ptr = 0;
-
-        for (let y = fy; y < fy + fh; y += 4) {
-            for (let x = fx; x < fx + fw; x += 4) {
-                const idx = (y * w + x) * 4;
-                const lum = (data[idx] * 0.3 + data[idx + 1] * 0.59 + data[idx + 2] * 0.11);
-                currentGray[ptr] = lum;
-                if (this.lastFrameGray && ptr < this.lastFrameGray.length) {
-                    frameMotion += Math.abs(lum - this.lastFrameGray[ptr]);
-                }
-                ptr++;
-            }
-        }
-        this.lastFrameGray = currentGray;
-
-        const normalizedMotion = Math.min(100, Math.round(frameMotion / (ptr * 0.15)));
+        const faceBox = this._getFaceBox(landmarks);
+        const faceCenter = { x: faceBox.x + faceBox.w / 2, y: faceBox.y + faceBox.h / 2 };
+        const movement = this.lastFaceCenter
+            ? Math.hypot(faceCenter.x - this.lastFaceCenter.x, faceCenter.y - this.lastFaceCenter.y)
+            : 0;
+        this.lastFaceCenter = faceCenter;
+        const normalizedMotion = Math.min(100, Math.round(movement * 1800));
         this.expressionVarianceSamples.push(normalizedMotion);
         if (this.expressionVarianceSamples.length > 80) this.expressionVarianceSamples.shift();
 
-        // 3. Eye Contact Gaze Estimator
-        // Eye contact is maintained when user looks squarely forward into the camera
-        // Looking down at notes shifts upper-face luminance gradient downward
-        let eyeZoneLum = 0;
-        let eyeCount = 0;
-        for (let y = eyeZoneY; y < eyeZoneY + eyeZoneH; y += 3) {
-            for (let x = fx; x < fx + fw; x += 3) {
-                const idx = (y * w + x) * 4;
-                eyeZoneLum += (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-                eyeCount++;
-            }
-        }
-        const avgEyeLum = eyeZoneLum / (eyeCount || 1);
-
-        // Smile Score Formulation: based on lip contrast, cheek lift and smile curve
-        const lipRedRatio = (mouthRedness / (mouthPixels || 1)) * 100;
-        let computedSmile = Math.min(100, Math.max(0, Math.round((lipRedRatio * 1.8) + (normalizedMotion * 0.3))));
-
-        // Smooth smile score
-        this.currentSmileScore = Math.round(this.currentSmileScore * 0.7 + computedSmile * 0.3);
+        const blendshapes = result.faceBlendshapes?.[0]?.categories || [];
+        const smileLeft = blendshapes.find((item) => item.categoryName === "mouthSmileLeft")?.score || 0;
+        const smileRight = blendshapes.find((item) => item.categoryName === "mouthSmileRight")?.score || 0;
+        const smile = Math.round(((smileLeft + smileRight) / 2) * 100);
+        this.currentSmileScore = Math.round(this.currentSmileScore * 0.65 + smile * 0.35);
         this.smileSamples.push(this.currentSmileScore);
-        if (this.smileSamples.length > 100) this.smileSamples.shift();
+        if (this.smileSamples.length > 120) this.smileSamples.shift();
 
-        // Eye contact determination:
-        // When gaze drops down to read a script, eyeZone luminance drops or shifts
-        this.isEyeContact = (avgEyeLum > 40);
-        this.eyeContactSamples.push(this.isEyeContact ? 1 : 0);
-        if (this.eyeContactSamples.length > 100) this.eyeContactSamples.shift();
+        if (this.currentSmileScore >= 45) this.expressionState = "Warm Smile";
+        else if (gaze === false) this.expressionState = "Looking Away";
+        else if (normalizedMotion > 8) this.expressionState = "Engaged & Animated";
+        else if (gaze === null) this.expressionState = "Gaze not clear";
+        else this.expressionState = "Neutral & Composed";
 
-        // Expression state taxonomy
-        if (this.currentSmileScore >= 45) {
-            this.expressionState = "Warm Smile";
-        } else if (normalizedMotion > 20) {
-            this.expressionState = "Engaged & Animated";
-        } else if (!this.isEyeContact) {
-            this.expressionState = "Looking Down / Off Camera";
-        } else {
-            this.expressionState = "Neutral & Composed";
-        }
+        this._renderFaceBox(faceBox, width, height);
+        this._publishMetrics(normalizedMotion);
 
-        // Real-time AI Coach Nudges
         const now = Date.now();
-        if (!this.isEyeContact && (now - this.lastEyeContactAlert > 8000)) {
+        if (gaze === false && now - this.lastEyeContactAlert > 8000) {
             this.lastEyeContactAlert = now;
-            if (this.onCoachTip) {
-                this.onCoachTip({
-                    category: "eye_contact",
-                    type: "warning",
-                    icon: "👁️",
-                    message: "Look up at the camera! Direct eye contact builds trust with your listeners."
-                });
-            }
-        }
-
-        // Check for long stone-face / deadpan expression (over 15 seconds with no smile or animation)
-        const recentSmiles = this.smileSamples.slice(-40);
-        const avgRecentSmile = recentSmiles.length ? (recentSmiles.reduce((a, b) => a + b, 0) / recentSmiles.length) : 0;
-        if (avgRecentSmile < 12 && (now - this.lastSmileAlert > 12000)) {
-            this.lastSmileAlert = now;
-            if (this.onCoachTip && Math.random() < 0.4) {
-                this.onCoachTip({
-                    category: "expression",
-                    type: "info",
-                    icon: "😊",
-                    message: "Try softening your facial expression with a gentle smile to appear more welcoming."
-                });
-            }
-        }
-
-        // Render Futuristic Coach HUD overlay on canvas
-        this._renderHUD(w, h, fx, fy, fw, fh);
-
-        if (this.onMetricsUpdate) {
-            const eyeContactPct = Math.round((this.eyeContactSamples.reduce((a, b) => a + b, 0) / (this.eyeContactSamples.length || 1)) * 100);
-            this.onMetricsUpdate({
-                smileScore: this.currentSmileScore,
-                isEyeContact: this.isEyeContact,
-                eyeContactPercentage: eyeContactPct,
-                expressionState: this.expressionState,
-                facialEnergy: normalizedMotion,
-                faceDetected: this.faceDetected
+            this.onCoachTip?.({
+                category: "eye_contact",
+                type: "warning",
+                icon: "eye",
+                message: "Your eyes seem to be looking away from the camera."
             });
         }
     }
 
-    _renderHUD(w, h, fx, fy, fw, fh) {
-        const ctx = this.ctx;
-
-        // Draw futuristic cyber corner brackets around face bounding box
-        const cornerLen = 22;
-        ctx.strokeStyle = this.currentSmileScore > 40 ? '#10b981' : (this.isEyeContact ? '#6366f1' : '#f59e0b');
-        ctx.lineWidth = 2.5;
-
-        // Top Left
-        ctx.beginPath();
-        ctx.moveTo(fx, fy + cornerLen);
-        ctx.lineTo(fx, fy);
-        ctx.lineTo(fx + cornerLen, fy);
-        ctx.stroke();
-
-        // Top Right
-        ctx.beginPath();
-        ctx.moveTo(fx + fw - cornerLen, fy);
-        ctx.lineTo(fx + fw, fy);
-        ctx.lineTo(fx + fw, fy + cornerLen);
-        ctx.stroke();
-
-        // Bottom Left
-        ctx.beginPath();
-        ctx.moveTo(fx, fy + fh - cornerLen);
-        ctx.lineTo(fx, fy + fh);
-        ctx.lineTo(fx + cornerLen, fy + fh);
-        ctx.stroke();
-
-        // Bottom Right
-        ctx.beginPath();
-        ctx.moveTo(fx + fw - cornerLen, fy + fh);
-        ctx.lineTo(fx + fw, fy + fh);
-        ctx.lineTo(fx + fw, fy + fh - cornerLen);
-        ctx.stroke();
-
-        // Eye Contact Crosshair
-        if (this.isEyeContact) {
-            const eyeX = fx + fw / 2;
-            const eyeY = fy + fh * 0.32;
-            ctx.strokeStyle = 'rgba(99, 102, 241, 0.45)';
-            ctx.lineWidth = 1.2;
-            ctx.beginPath();
-            ctx.arc(eyeX, eyeY, 14, 0, Math.PI * 2);
-            ctx.stroke();
-
-            ctx.fillStyle = '#6366f1';
-            ctx.beginPath();
-            ctx.arc(eyeX, eyeY, 2.5, 0, Math.PI * 2);
-            ctx.fill();
+    _estimateGaze(landmarks) {
+        const eyeRatios = [
+            { corners: [33, 133], iris: 468, top: 159, bottom: 145 },
+            { corners: [362, 263], iris: 473, top: 386, bottom: 374 }
+        ];
+        const readings = [];
+        for (const eye of eyeRatios) {
+            const a = landmarks[eye.corners[0]];
+            const b = landmarks[eye.corners[1]];
+            const iris = landmarks[eye.iris];
+            const top = landmarks[eye.top];
+            const bottom = landmarks[eye.bottom];
+            const eyeWidth = Math.abs(b.x - a.x);
+            const eyeHeight = Math.abs(bottom.y - top.y);
+            if (eyeWidth < 0.008 || eyeHeight < 0.002) continue;
+            const horizontal = (iris.x - Math.min(a.x, b.x)) / eyeWidth;
+            const vertical = (iris.y - Math.min(top.y, bottom.y)) / eyeHeight;
+            readings.push({ horizontal, vertical });
         }
+        if (readings.length !== 2) return null;
 
-        // Expression status badge on top of face box
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-        ctx.roundRect ? ctx.roundRect(fx, fy - 26, 150, 20, 6) : ctx.rect(fx, fy - 26, 150, 20);
-        ctx.fill();
+        const horizontal = readings.reduce((sum, reading) => sum + reading.horizontal, 0) / readings.length;
+        const vertical = readings.reduce((sum, reading) => sum + reading.vertical, 0) / readings.length;
+        const centered = horizontal >= 0.32 && horizontal <= 0.68 && vertical >= 0.14 && vertical <= 0.86;
+        const clearlyAverted = horizontal < 0.20 || horizontal > 0.80 || vertical < 0.04 || vertical > 0.96;
+        return centered ? true : clearlyAverted ? false : null;
+    }
 
-        ctx.fillStyle = this.currentSmileScore > 40 ? '#34d399' : '#e0e7ff';
-        ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
-        ctx.fillText(`• ${this.expressionState}`, fx + 8, fy - 12);
+    _getFaceBox(landmarks) {
+        const xs = landmarks.map((point) => point.x);
+        const ys = landmarks.map((point) => point.y);
+        const left = Math.min(...xs);
+        const right = Math.max(...xs);
+        const top = Math.min(...ys);
+        const bottom = Math.max(...ys);
+        return { x: left, y: top, w: right - left, h: bottom - top };
+    }
+
+    _renderFaceBox(box, width, height) {
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, width, height);
+        const x = (1 - box.x - box.w) * width;
+        const y = box.y * height;
+        const w = box.w * width;
+        const h = box.h * height;
+        ctx.strokeStyle = this.isEyeContact === false ? "#d97706" : "#3b82f6";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+    }
+
+    _renderFrameStatus(width, height) {
+        this.ctx.clearRect(0, 0, width, height);
+        this.ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+        this.ctx.fillRect(0, 0, width, 28);
+        this.ctx.fillStyle = "#ffffff";
+        this.ctx.font = '600 12px system-ui, sans-serif';
+        this.ctx.fillText(this.gazeStatus, 10, 19);
+    }
+
+    _publishMetrics(facialEnergy = 0) {
+        if (!this.onMetricsUpdate) return;
+        const validEyeSamples = this.eyeContactSamples;
+        const eyePct = validEyeSamples.length
+            ? Math.round(validEyeSamples.reduce((sum, value) => sum + value, 0) / validEyeSamples.length * 100)
+            : null;
+        this.onMetricsUpdate({
+            smileScore: this.currentSmileScore,
+            isEyeContact: this.isEyeContact,
+            eyeContactPercentage: eyePct,
+            gazeStatus: this.gazeStatus,
+            expressionState: this.expressionState,
+            facialEnergy,
+            faceDetected: this.faceDetected
+        });
     }
 
     getSummary() {
-        const eyeCount = this.eyeContactSamples.length;
-        const eyePct = eyeCount ? Math.round((this.eyeContactSamples.reduce((a, b) => a + b, 0) / eyeCount) * 100) : 80;
-
-        const smileCount = this.smileSamples.length;
-        const avgSmile = smileCount ? Math.round(this.smileSamples.reduce((a, b) => a + b, 0) / smileCount) : 25;
-
-        const motionCount = this.expressionVarianceSamples.length;
-        const avgMotion = motionCount ? Math.round(this.expressionVarianceSamples.reduce((a, b) => a + b, 0) / motionCount) : 20;
-
-        // Expression Score: Combination of Eye Contact, Warm Smile presence, and Facial Dynamics
-        let expressionScore = Math.round(
-            (eyePct * 0.45) +
-            (Math.min(100, avgSmile * 2.2) * 0.30) +
-            (Math.min(100, avgMotion * 2.5) * 0.25)
-        );
-        expressionScore = Math.max(30, Math.min(99, expressionScore));
-
+        const avgSmile = this.smileSamples.length
+            ? Math.round(this.smileSamples.reduce((sum, value) => sum + value, 0) / this.smileSamples.length)
+            : 25;
+        const avgMotion = this.expressionVarianceSamples.length
+            ? Math.round(this.expressionVarianceSamples.reduce((sum, value) => sum + value, 0) / this.expressionVarianceSamples.length)
+            : 20;
+        const eyeContactAvailable = this.eyeContactSamples.length > 0;
+        const eyePct = eyeContactAvailable
+            ? Math.round(this.eyeContactSamples.reduce((sum, value) => sum + value, 0) / this.eyeContactSamples.length * 100)
+            : null;
+        const expressionScore = Math.max(30, Math.min(99, Math.round(
+            (eyePct ?? 75) * 0.45 + Math.min(100, avgSmile * 2.2) * 0.30 + Math.min(100, avgMotion * 2.5) * 0.25
+        )));
         return {
             eyeContactPercentage: eyePct,
+            eyeContactAvailable,
             avgSmileScore: avgSmile,
             facialEnergyScore: avgMotion,
-            expressionScore: expressionScore
+            expressionScore
         };
     }
 }

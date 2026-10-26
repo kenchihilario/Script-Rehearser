@@ -3,36 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rehearse AI — Intelligent Script Rehearsal & Speaker Coach</title>
-    <!-- Google Fonts -->
+    <title>Script Rehearser — Speaker Practice</title>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <!-- Top Navigation & Controls Bar -->
+    <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <symbol id="icon-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></symbol>
+        <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M4 19V5m0 14h17M8 15l4-4 3 2 5-6"/></symbol>
+        <symbol id="icon-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14 1v2a3 3 0 0 1-3 3H3"/></symbol>
+        <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20h15.6a2 2 0 0 0 1.7-2.6L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 3h.01"/></symbol>
+        <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+        <symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="icon-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+        <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+        <symbol id="icon-bulb" viewBox="0 0 24 24"><path d="M9 18h6m-5 4h4m-2-21a7 7 0 0 0-4 12.7c.6.4 1 1 1 1.8V17h6v-1.5c0-.7.4-1.4 1-1.8A7 7 0 0 0 12 1Z"/></symbol>
+        <symbol id="icon-message" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 4a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.4Z"/></symbol>
+        <symbol id="icon-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8m-8 4h8"/></symbol>
+        <symbol id="icon-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5 5 5 5-5m-5 5V3"/></symbol>
+        <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+        <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+        <symbol id="icon-play" viewBox="0 0 24 24"><path d="m7 4 14 8-14 8V4Z"/></symbol>
+        <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M8 5v14m8-14v14"/></symbol>
+        <symbol id="icon-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></symbol>
+        <symbol id="icon-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+        <symbol id="icon-gauge" viewBox="0 0 24 24"><path d="M20 13a8 8 0 1 0-16 0m8-1 4-4m-8 9h8"/></symbol>
+        <symbol id="icon-sparkle" viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Zm7 12 .9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/></symbol>
+    </svg>
+    
     <header class="app-header">
         <div class="header-brand">
-            <div class="brand-logo-icon">🎙️</div>
+            <div class="brand-logo-icon"><svg class="icon"><use href="#icon-mic"></use></svg></div>
             <div class="brand-info">
-                <h1>REHEARSE<span>AI</span></h1>
-                <p class="brand-subtitle">Smart Script & Speaker Coach</p>
+                <h1>Script Rehearser</h1>
+                <p class="brand-subtitle">A focused space to practice your presentation</p>
             </div>
-            <div class="brand-tag">PowerPoint-Style Coach</div>
+            <div class="brand-tag">Rehearsal Studio</div>
         </div>
 
         <div class="header-script-controls">
             <div class="select-wrapper">
                 <select id="scriptSelect" class="script-dropdown" title="Select a rehearsal script">
-                    <!-- Loaded dynamically -->
+                    
                 </select>
             </div>
             <button id="btnNewScript" class="btn btn-secondary" title="Add a custom script">
-                <span class="btn-icon">➕</span> New Script
+                <span class="btn-icon"><svg class="icon"><use href="#icon-plus"></use></svg></span> New Script
             </button>
             <button id="btnHistory" class="btn btn-secondary" title="View past rehearsal scores">
-                <span class="btn-icon">📊</span> History
+                <span class="btn-icon"><svg class="icon"><use href="#icon-chart"></use></svg></span> History
             </button>
         </div>
 
@@ -42,20 +66,20 @@
                 <span id="sessionTimer">00:00</span>
             </div>
             <button id="btnStart" class="btn btn-primary btn-glow">
-                <span class="btn-icon">▶️</span> Start Rehearsal
+                <span class="btn-icon"><svg class="icon"><use href="#icon-play"></use></svg></span> Start Rehearsal
             </button>
             <button id="btnPause" class="btn btn-warning hidden">
-                <span class="btn-icon">⏸️</span> Pause
+                <span class="btn-icon"><svg class="icon"><use href="#icon-pause"></use></svg></span> Pause
             </button>
             <button id="btnFinish" class="btn btn-danger hidden">
-                <span class="btn-icon">⏹️</span> Finish & Score
+                <span class="btn-icon"><svg class="icon"><use href="#icon-stop"></use></svg></span> Finish & Score
             </button>
         </div>
     </header>
 
-    <!-- Main Rehearsal Studio -->
+    
     <main class="studio-layout">
-        <!-- Left Section: Teleprompter & Live Speech Tracking -->
+        
         <section class="teleprompter-section">
             <div class="prompter-toolbar">
                 <div class="toolbar-meta">
@@ -76,15 +100,26 @@
                 </div>
             </div>
 
-            <!-- Teleprompter Surface -->
+            
             <div class="prompter-viewport">
                 <div class="prompter-focal-line" title="Optimal reading focal zone"></div>
                 <div id="prompterContainer" class="prompter-content">
-                    <!-- Spoken words will highlight and scroll here -->
+                    
                 </div>
             </div>
 
-            <!-- Pacing & Delivery Bar -->
+            <section class="live-transcript-panel" aria-labelledby="liveTranscriptTitle">
+                <div class="live-transcript-heading">
+                    <div>
+                        <h3 id="liveTranscriptTitle">Session transcript</h3>
+                        <p>Temporary in this page and excluded from saved reports. Speech recognition may use your browser’s speech service.</p>
+                    </div>
+                    <span id="transcriptStatus" class="transcript-status">Waiting to start</span>
+                </div>
+                <div id="liveTranscript" class="live-transcript" aria-live="polite">Your words will appear here while you speak.</div>
+            </section>
+
+            
             <div class="pacing-hud-bar">
                 <div class="pacing-metric-card">
                     <div class="metric-label">Speaking Pacing</div>
@@ -106,14 +141,14 @@
 
                 <div class="fluency-quick-stats">
                     <div class="quick-stat-pill">
-                        <span class="pill-icon">🔄</span>
+                        <span class="pill-icon"><svg class="icon"><use href="#icon-repeat"></use></svg></span>
                         <div class="pill-data">
                             <span class="pill-label">Stutters Detected</span>
                             <span id="liveStutterCount" class="pill-number">0</span>
                         </div>
                     </div>
                     <div class="quick-stat-pill">
-                        <span class="pill-icon">⚠️</span>
+                        <span class="pill-icon"><svg class="icon"><use href="#icon-alert"></use></svg></span>
                         <div class="pill-data">
                             <span class="pill-label">Filler Words</span>
                             <span id="liveFillerCount" class="pill-number">0</span>
@@ -123,15 +158,32 @@
             </div>
         </section>
 
-        <!-- Right Section: Multimodal Diagnostic HUD (Camera & Audio) -->
+        
         <aside class="diagnostics-section">
-            <!-- Camera & Expression Analysis Card -->
+            <div class="hud-card slide-hud-card">
+                <div class="hud-card-header">
+                    <div class="card-title"><span class="card-icon"><svg class="icon"><use href="#icon-image"></use></svg></span> Slide for rehearsal</div>
+                    <button id="btnImportSlide" class="btn btn-secondary btn-small" type="button">Import slide</button>
+                    <input id="slideFileInput" class="hidden" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
+                </div>
+                <div class="slide-preview-frame">
+                    <div id="slideEmptyState" class="slide-empty-state">Import a PDF or slide image to keep it beside your script.</div>
+                    <img id="slideImage" class="slide-preview-image hidden" alt="Imported rehearsal slide">
+                    <iframe id="slidePdf" class="slide-preview-pdf hidden" title="Imported PDF slides"></iframe>
+                </div>
+                <div class="slide-preview-footer">
+                    <span id="slideFileName">No slide loaded</span>
+                    <button id="btnClearSlide" class="text-button hidden" type="button">Remove</button>
+                </div>
+            </div>
+
+            
             <div class="hud-card camera-hud-card">
                 <div class="hud-card-header">
                     <div class="card-title">
-                        <span class="card-icon">👁️</span> Facial Expression & Eye Contact
+                        <span class="card-icon"><svg class="icon"><use href="#icon-eye"></use></svg></span> Facial Expression & Eye Contact
                     </div>
-                    <span id="liveEyeContactStatus" class="stat-badge success">Direct Contact</span>
+                    <span id="liveEyeContactStatus" class="stat-badge neutral">Waiting for camera</span>
                 </div>
 
                 <div class="camera-stream-wrapper">
@@ -152,11 +204,11 @@
                 </div>
             </div>
 
-            <!-- Voice Pitch & Tone Analysis Card -->
+            
             <div class="hud-card audio-hud-card">
                 <div class="hud-card-header">
                     <div class="card-title">
-                        <span class="card-icon">🎵</span> Voice Tone & Pitch Inflection
+                        <span class="card-icon"><svg class="icon"><use href="#icon-activity"></use></svg></span> Voice Tone & Pitch Inflection
                     </div>
                     <span id="liveToneStatus" class="stat-badge success">Active</span>
                 </div>
@@ -177,11 +229,11 @@
                 </div>
             </div>
 
-            <!-- Rehearsal Tips & Checklist -->
+            
             <div class="hud-card checklist-card">
                 <div class="hud-card-header">
                     <div class="card-title">
-                        <span class="card-icon">🎯</span> Real-Time Speaker Goals
+                        <span class="card-icon"><svg class="icon"><use href="#icon-target"></use></svg></span> Practice Focus
                     </div>
                 </div>
                 <ul class="speaker-goals-list">
@@ -194,13 +246,13 @@
         </aside>
     </main>
 
-    <!-- Floating Real-Time Coach Nudge Toast (PowerPoint Speaker Coach Style) -->
+    
     <div id="coachTipBox" class="coach-tip-box">
-        <div id="coachTipIcon" class="tip-icon">💡</div>
-        <div id="coachTipText" class="tip-text">Welcome to Rehearse AI! Click Start Rehearsal to begin.</div>
+        <div id="coachTipIcon" class="tip-icon"><svg class="icon"><use href="#icon-bulb"></use></svg></div>
+        <div id="coachTipText" class="tip-text">Welcome. Click Start Rehearsal when you’re ready.</div>
     </div>
 
-    <!-- 3-2-1 Countdown Overlay -->
+    
     <div id="countdownOverlay" class="countdown-overlay">
         <div class="countdown-circle">
             <span id="countdownNum" class="countdown-number">3</span>
@@ -208,19 +260,19 @@
         </div>
     </div>
 
-    <!-- Rehearsal Scorecard & Performance Report Modal -->
+    
     <div id="reportModal" class="modal-overlay">
         <div class="modal-dialog report-dialog">
             <div class="report-header">
                 <div class="report-header-info">
-                    <h2>Rehearsal Performance Scorecard</h2>
-                    <p class="report-subtitle">Comprehensive multimodal analysis of your presentation delivery</p>
+                    <h2>Rehearsal Summary</h2>
+                    <p class="report-subtitle">Local feedback is based on session metrics. The transcript is temporary and is not saved.</p>
                 </div>
                 <button id="btnCloseReport" class="modal-close-btn" title="Close report">&times;</button>
             </div>
 
             <div class="report-body">
-                <!-- Top Summary: Score + Grade + Radar Chart -->
+                
                 <div class="report-hero-grid">
                     <div class="score-hero-card">
                         <div class="overall-circle-container">
@@ -230,99 +282,100 @@
                             </div>
                         </div>
                         <div class="grade-container">
-                            <span class="grade-label">Speaker Grade</span>
+                            <span class="grade-label">Session Score</span>
                             <span id="reportGrade" class="grade-badge grade-a">A</span>
                         </div>
                     </div>
 
                     <div class="radar-card">
-                        <div class="radar-header">Multimodal Competency Matrix</div>
+                        <div class="radar-header">Delivery Overview</div>
                         <canvas id="reportRadarCanvas" width="340" height="230"></canvas>
                     </div>
                 </div>
 
-                <!-- Metrics Breakdown Grid -->
+                
                 <div class="metrics-summary-grid">
                     <div class="summary-metric-card">
-                        <span class="metric-icon">🗣️</span>
+                        <span class="metric-icon"><svg class="icon"><use href="#icon-message"></use></svg></span>
                         <div class="metric-title">Speaking Pace</div>
                         <div id="reportWpm" class="metric-stat">-- WPM</div>
                         <div class="metric-sub">Target: 140 WPM</div>
                     </div>
 
                     <div class="summary-metric-card">
-                        <span class="metric-icon">🔄</span>
+                        <span class="metric-icon"><svg class="icon"><use href="#icon-repeat"></use></svg></span>
                         <div class="metric-title">Stutters / False Starts</div>
                         <div id="reportStutters" class="metric-stat">0</div>
                         <div class="metric-sub">Repetitive hesitations</div>
                     </div>
 
                     <div class="summary-metric-card">
-                        <span class="metric-icon">⚠️</span>
+                        <span class="metric-icon"><svg class="icon"><use href="#icon-alert"></use></svg></span>
                         <div class="metric-title">Filler Words</div>
                         <div id="reportFillers" class="metric-stat">0</div>
                         <div class="metric-sub">"um", "uh", "like", etc.</div>
                     </div>
 
                     <div class="summary-metric-card">
-                        <span class="metric-icon">🎵</span>
+                        <span class="metric-icon"><svg class="icon"><use href="#icon-activity"></use></svg></span>
                         <div class="metric-title">Tone & Pitch Variety</div>
                         <div id="reportToneScore" class="metric-stat">--/100</div>
                         <div class="metric-sub">Monotone diagnostic</div>
                     </div>
 
                     <div class="summary-metric-card">
-                        <span class="metric-icon">👁️</span>
+                        <span class="metric-icon"><svg class="icon"><use href="#icon-eye"></use></svg></span>
                         <div class="metric-title">Eye Contact</div>
                         <div id="reportEyeContact" class="metric-stat">--%</div>
                         <div class="metric-sub">Audience engagement</div>
                     </div>
 
                     <div class="summary-metric-card">
-                        <span class="metric-icon">📜</span>
+                        <span class="metric-icon"><svg class="icon"><use href="#icon-file"></use></svg></span>
                         <div class="metric-title">Script Fidelity</div>
                         <div id="reportScriptAccuracy" class="metric-stat">--%</div>
                         <div class="metric-sub">Content coverage</div>
                     </div>
                 </div>
 
-                <!-- Stutter details breakdown -->
+                
                 <div class="report-section-card">
-                    <h3><span class="section-icon">🔄</span> Fluency & Stutter Log</h3>
+                    <h3><span class="section-icon"><svg class="icon"><use href="#icon-repeat"></use></svg></span> Fluency & Stutter Log</h3>
                     <ul id="stutterDetailsList" class="stutter-log-list">
-                        <!-- Populated dynamically -->
+                        
                     </ul>
                 </div>
 
-                <!-- Actionable Coaching Advice -->
+                
                 <div class="report-section-card">
-                    <h3><span class="section-icon">💡</span> Personalized Coach Feedback</h3>
+                    <h3><span class="section-icon"><svg class="icon"><use href="#icon-bulb"></use></svg></span> Practice Suggestions</h3>
+                    <p class="review-note">These suggestions are generated locally from the rehearsal metrics. No AI service receives the transcript.</p>
                     <div id="reportTipsList" class="tips-container">
-                        <!-- Populated dynamically -->
+                        
                     </div>
                 </div>
 
-                <!-- Spoken Transcript -->
+                
                 <div class="report-section-card">
-                    <h3><span class="section-icon">📝</span> Spoken Transcript</h3>
+                    <h3><span class="section-icon"><svg class="icon"><use href="#icon-file"></use></svg></span> Spoken Transcript</h3>
                     <div id="reportTranscript" class="transcript-box">
-                        <!-- Spoken text -->
+                        
                     </div>
                 </div>
             </div>
 
             <div class="report-footer">
                 <button id="btnExportReport" class="btn btn-secondary">
-                    <span class="btn-icon">📥</span> Export Markdown Report
+                    <span class="btn-icon"><svg class="icon"><use href="#icon-download"></use></svg></span> Export Markdown Report
                 </button>
                 <button id="btnRehearseAgain" class="btn btn-primary btn-glow">
-                    <span class="btn-icon">🔄</span> Rehearse Again
+                    <span class="btn-icon"><svg class="icon"><use href="#icon-repeat"></use></svg></span> Rehearse Again
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Custom Script Modal -->
+    
     <div id="scriptModal" class="modal-overlay">
         <div class="modal-dialog">
             <div class="modal-header">
@@ -355,7 +408,7 @@
         </div>
     </div>
 
-    <!-- History Modal -->
+    
     <div id="historyModal" class="modal-overlay">
         <div class="modal-dialog">
             <div class="modal-header">
@@ -364,13 +417,13 @@
             </div>
             <div class="modal-body">
                 <div id="historyList" class="history-list-container">
-                    <!-- Loaded dynamically -->
+                    
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Application Scripts -->
+    
     <script src="/static/js/teleprompter.js"></script>
     <script src="/static/js/audio_coach.js"></script>
     <script src="/static/js/vision_coach.js"></script>

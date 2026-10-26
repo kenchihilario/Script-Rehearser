@@ -1,7 +1,4 @@
-/**
- * Teleprompter - Voice-Synchronized Interactive Teleprompter
- * Highlights spoken words in real time, auto-scrolls, and calculates pacing targets.
- */
+
 class Teleprompter {
     constructor(containerElement, options = {}) {
         this.container = containerElement;
@@ -24,8 +21,6 @@ class Teleprompter {
 
         if (!this.container) return;
         this.container.innerHTML = "";
-
-        // Break into paragraphs and words
         const paragraphs = text.split(/\n\s*\n/);
         let wordGlobalIdx = 0;
 
@@ -67,15 +62,11 @@ class Teleprompter {
 
     highlightWord(index) {
         if (index < 0 || index >= this.words.length) return;
-
-        // Mark all words up to index as spoken
         for (let i = 0; i <= index; i++) {
             if (this.words[i] && this.words[i].element) {
                 this.words[i].element.classList.add("spoken");
             }
         }
-
-        // Highlight active word
         if (this.words[this.currentWordIdx] && this.words[this.currentWordIdx].element) {
             this.words[this.currentWordIdx].element.classList.remove("active");
         }
@@ -92,7 +83,7 @@ class Teleprompter {
         const elemRect = element.getBoundingClientRect();
 
         const relativeTop = elemRect.top - containerRect.top + this.container.scrollTop;
-        const targetScroll = relativeTop - (containerRect.height * 0.35); // Keep word in upper-middle 35% sweet spot
+        const targetScroll = relativeTop - (containerRect.height * 0.35);
 
         this.container.scrollTo({
             top: Math.max(0, targetScroll),
@@ -124,8 +115,6 @@ class Teleprompter {
     startAutoScroll(wpm = 140) {
         this.stopAutoScroll();
         this.isAutoScrolling = true;
-
-        // At 140 WPM, 1 word = ~430ms. Pixels per second calculation:
         const pxPerSec = (wpm / 140) * 24 * this.scrollSpeed;
         const intervalMs = 25;
         const pxPerTick = pxPerSec * (intervalMs / 1000);

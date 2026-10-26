@@ -141,6 +141,8 @@ def save_rehearsal():
 
     report_filename = f"report_{record_id}.md"
     report_path = os.path.join(REPORTS_DIR, report_filename)
+    eye_contact = record["metrics"]["eyeContactPercentage"]
+    eye_contact_text = f"{eye_contact}%" if eye_contact is not None else "N/A"
     try:
         with open(report_path, "w", encoding="utf-8") as rf:
             rf.write(f"# Rehearsal Performance Report: {record['scriptTitle']}\n\n")
@@ -151,7 +153,7 @@ def save_rehearsal():
             rf.write(f"- **Stutters Detected**: {record['metrics']['stutterCount']}\n")
             rf.write(f"- **Filler Words**: {record['metrics']['fillerCount']}\n")
             rf.write(f"- **Tone & Pitch Variety**: {record['metrics']['toneScore']}/100 (Monotone: {record['metrics']['pitchMonotone']})\n")
-            rf.write(f"- **Facial Expression & Eye Contact**: {record['metrics']['expressionScore']}/100 (Eye Contact: {record['metrics']['eyeContactPercentage']}%)\n")
+            rf.write(f"- **Facial Expression & Eye Contact**: {record['metrics']['expressionScore']}/100 (Eye Contact: {eye_contact_text})\n")
             rf.write(f"- **Script Accuracy**: {record['metrics']['scriptAccuracy']}%\n\n")
             rf.write("## Personalized Coaching Feedback\n")
             for tip in record["coachingTips"]:

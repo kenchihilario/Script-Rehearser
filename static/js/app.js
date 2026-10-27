@@ -91,6 +91,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let pptxViewer = null;
     let loadedSlideCount = 0;
     let editingScriptId = null;
+    let slideResizeObserver = null;
 
     const iconNames = new Set([
         "mic", "plus", "chart", "repeat", "alert", "image", "eye", "activity", "target",
@@ -131,7 +132,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         elements.btnNextSlide.classList.add("hidden");
         elements.slidePosition.classList.add("hidden");
         document.body.classList.remove("presentation-mode");
-        elements.btnPresentationMode.textContent = "Presentation mode";
+        elements.btnPresentationMode.textContent = "Fullscreen";
+        if (document.fullscreenElement) document.exitFullscreen?.();
         elements.slideFileInput.value = "";
     }
 
@@ -141,6 +143,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         elements.slidePosition.textContent = `${current + 1} / ${loadedSlideCount}`;
         elements.btnPreviousSlide.disabled = current <= 0;
         elements.btnNextSlide.disabled = current >= loadedSlideCount - 1;
+    }
+
+    async function renderPowerPointAtCurrentSize() {
+        if (!pptxViewer) return;
+        // PptxViewJS writes the first canvas size inline. Clear it before each render
+        // so the renderer measures the current slide viewport after layout changes.
+        elements.slideCanvas.style.width = "";
+        elements.slideCanvas.style.height = "";
+        await pptxViewer.render();
+    }
+
+    function updateFullscreenButton() {
+        const isFullscreen = document.fullscreenElement === document.documentElement;
+        elements.btnPresentationMode.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
     }
 
     async function showImportedSlide(file) {
@@ -160,7 +176,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             try {
                 if (!window.PptxViewJS?.PPTXViewer) throw new Error("PowerPoint viewer did not load");
                 elements.slideCanvas.classList.remove("hidden");
-                pptxViewer = new window.PptxViewJS.PPTXViewer({ canvas: elements.slideCanvas, slideSizeMode: "fit" });
+                pptxViewer = new window.PptxViewJS.PPTXViewer({ canvas: elements.slideCanvas, slideSizeMode: "fit", autoRenderFirstSlide: false });
                 await pptxViewer.loadFile(file);
                 await pptxViewer.render();
                 loadedSlideCount = pptxViewer.getSlideCount();
@@ -171,8 +187,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 elements.slidePosition.classList.remove("hidden");
                 updateSlidePosition();
                 document.body.classList.add("presentation-mode");
-                elements.btnPresentationMode.textContent = "Exit presentation mode";
-                requestAnimationFrame(() => pptxViewer?.render());
+                updateFullscreenButton();
+                requestAnimationFrame(() => renderPowerPointAtCurrentSize());
+                if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                }
             } catch (error) {
                 console.error("Failed to open PowerPoint:", error);
                 clearImportedSlide();
@@ -656,17 +675,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.btnClearSlide.addEventListener("click", clearImportedSlide);
     elements.btnPresentationMode.addEventListener("click", () => {
         if (!pptxViewer) return;
-        const enabled = document.body.classList.toggle("presentation-mode");
-        elements.btnPresentationMode.textContent = enabled ? "Exit presentation mode" : "Presentation mode";
-        if (enabled) requestAnimationFrame(() => pptxViewer?.render());
+        if (document.fullscreenElement) {
+            document.exitFullscreen?.();
+        } else {
+            document.documentElement.requestFullscreen?.().catch(() => {});
+        }
+    });
+    document.addEventListener("fullscreenchange", () => {
+        updateFullscreenButton();
+        if (pptxViewer) requestAnimationFrame(() => renderPowerPointAtCurrentSize());
+    });
+    window.addEventListener("resize", () => {
+        if (pptxViewer) requestAnimationFrame(() => renderPowerPointAtCurrentSize());
     });
     elements.btnPreviousSlide.addEventListener("click", async () => {
         if (!pptxViewer) return;
+        elements.slideCanvas.style.width = "";
+        elements.slideCanvas.style.height = "";
         await pptxViewer.previousSlide();
         updateSlidePosition();
     });
     elements.btnNextSlide.addEventListener("click", async () => {
         if (!pptxViewer) return;
+        elements.slideCanvas.style.width = "";
+        elements.slideCanvas.style.height = "";
         await pptxViewer.nextSlide();
         updateSlidePosition();
     });
@@ -675,10 +707,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (event.target instanceof HTMLElement && (event.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(event.target.tagName))) return;
         if (event.key === "ArrowRight" || event.key === "PageDown") {
             event.preventDefault();
+            elements.slideCanvas.style.width = "";
+            elements.slideCanvas.style.height = "";
             await pptxViewer.nextSlide();
             updateSlidePosition();
         } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
             event.preventDefault();
+            elements.slideCanvas.style.width = "";
+            elements.slideCanvas.style.height = "";
             await pptxViewer.previousSlide();
             updateSlidePosition();
         }

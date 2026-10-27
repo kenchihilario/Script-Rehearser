@@ -1628,8 +1628,12 @@ body {
     grid-template-columns: minmax(0, 1fr) minmax(300px, 30vw);
     gap: 16px;
     max-width: none;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     height: calc(100vh - 72px);
     padding: 14px 18px;
+    overflow: hidden;
 }
 
 .presentation-mode .diagnostics-section {
@@ -1640,6 +1644,8 @@ body {
     grid-column: 1;
     grid-row: 1;
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
     min-height: 0;
     height: 100%;
     display: flex;
@@ -1676,6 +1682,8 @@ body {
     grid-column: 2;
     grid-row: 1;
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .presentation-mode .live-transcript-panel,

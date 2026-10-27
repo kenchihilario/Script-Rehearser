@@ -19,7 +19,7 @@ Then open <http://127.0.0.1:5055> if it doesn’t open automatically. Allow came
 
 - Choose one of the sample scripts or add your own. Select a saved custom script and choose **Edit Script** to update its title, category, target pace, or text; sample scripts stay unchanged.
 - Change the text size and teleprompter speed.
-- Choose **Open PPTX** to load a PowerPoint deck. It opens in a slide-first layout with the script beside it; use the slide buttons or Left/Right and Page Up/Page Down keys to navigate. Presentation files are rendered in your browser. PDF and image slides are also supported.
+- Choose **Open PPTX** to load a PowerPoint deck. It opens in a slide-first layout with the script beside it; use the slide buttons or Left/Right and Page Up/Page Down keys to navigate. Presentation files are rendered in your browser, including embedded EMF/WMF graphics. PDF and image slides are also supported.
 - Start, pause, and finish a rehearsal. The app saves session metrics and lets you export a report.
 - View the live transcript and session suggestions in the summary.
 

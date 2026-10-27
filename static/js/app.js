@@ -159,6 +159,96 @@ document.addEventListener("DOMContentLoaded", async () => {
         elements.btnPresentationMode.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
     }
 
+    async function preparePowerPointFile(file) {
+        const archive = await window.JSZip.loadAsync(file);
+        const metafiles = Object.keys(archive.files).filter(path =>
+            !archive.files[path].dir && /^ppt\/media\/.*\.(?:emf|wmf|emz|wmz)$/i.test(path)
+        );
+        if (metafiles.length === 0) return { data: file, convertedCount: 0 };
+
+        const { convertMetafile } = await import("/static/vendor/emf-converter.browser.mjs");
+        const replacements = new Map();
+        let failedCount = 0;
+        for (const sourcePath of metafiles) {
+            const sourceBytes = await archive.file(sourcePath).async("uint8array");
+            let converted;
+            try {
+                converted = await convertMetafile(sourceBytes, {
+                    format: "png",
+                    maxWidth: 4096,
+                    maxHeight: 4096
+                });
+            } catch (error) {
+                console.warn(`Could not convert embedded metafile ${sourcePath}:`, error);
+            }
+            if (!converted?.data?.length) {
+                failedCount += 1;
+                continue;
+            }
+
+            const pathParts = sourcePath.split("/");
+            const sourceName = pathParts.pop();
+            const stem = sourceName.replace(/\.[^.]+$/, "");
+            let targetName = `${stem}-rehearser.png`;
+            let targetPath = [...pathParts, targetName].join("/");
+            let suffix = 2;
+            while (archive.file(targetPath)) {
+                targetName = `${stem}-rehearser-${suffix}.png`;
+                targetPath = [...pathParts, targetName].join("/");
+                suffix += 1;
+            }
+
+            archive.file(targetPath, converted.data);
+            archive.remove(sourcePath);
+            replacements.set(sourceName.toLowerCase(), targetName);
+        }
+
+        if (replacements.size === 0) return { data: file, convertedCount: 0, failedCount };
+
+        for (const path of Object.keys(archive.files).filter(name => name.toLowerCase().endsWith(".rels"))) {
+            const entry = archive.file(path);
+            if (!entry) continue;
+            const xml = await entry.async("text");
+            const document = new DOMParser().parseFromString(xml, "application/xml");
+            if (document.getElementsByTagName("parsererror").length) continue;
+
+            let changed = false;
+            for (const relationship of Array.from(document.getElementsByTagName("*"))) {
+                if (relationship.localName !== "Relationship" || relationship.getAttribute("TargetMode") === "External") continue;
+                const target = relationship.getAttribute("Target");
+                if (!target) continue;
+                const basename = target.replace(/\\/g, "/").split("/").pop().toLowerCase();
+                const replacement = replacements.get(basename);
+                if (!replacement) continue;
+                const slashIndex = target.lastIndexOf("/");
+                relationship.setAttribute("Target", `${target.slice(0, slashIndex + 1)}${replacement}`);
+                changed = true;
+            }
+            if (changed) archive.file(path, new XMLSerializer().serializeToString(document));
+        }
+
+        const contentTypesEntry = archive.file("[Content_Types].xml");
+        if (contentTypesEntry) {
+            const xml = await contentTypesEntry.async("text");
+            const document = new DOMParser().parseFromString(xml, "application/xml");
+            const hasPngDefault = Array.from(document.getElementsByTagName("*"))
+                .some(element => element.localName === "Default" && element.getAttribute("Extension")?.toLowerCase() === "png");
+            if (!hasPngDefault && document.documentElement) {
+                const pngDefault = document.createElementNS(document.documentElement.namespaceURI, "Default");
+                pngDefault.setAttribute("Extension", "png");
+                pngDefault.setAttribute("ContentType", "image/png");
+                document.documentElement.appendChild(pngDefault);
+            }
+            archive.file("[Content_Types].xml", new XMLSerializer().serializeToString(document));
+        }
+
+        return {
+            data: await archive.generateAsync({ type: "arraybuffer" }),
+            convertedCount: replacements.size,
+            failedCount
+        };
+    }
+
     async function showImportedSlide(file) {
         clearImportedSlide();
         const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -177,9 +267,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (!window.PptxViewJS?.PPTXViewer) throw new Error("PowerPoint viewer did not load");
                 elements.slideCanvas.classList.remove("hidden");
                 pptxViewer = new window.PptxViewJS.PPTXViewer({ canvas: elements.slideCanvas, slideSizeMode: "fit", autoRenderFirstSlide: false });
-                await pptxViewer.loadFile(file);
+                const preparedFile = await preparePowerPointFile(file);
+                await pptxViewer.loadFile(preparedFile.data);
                 await pptxViewer.render();
                 loadedSlideCount = pptxViewer.getSlideCount();
+                if (preparedFile.failedCount) {
+                    elements.slideFileName.textContent = `${file.name} · ${preparedFile.failedCount} embedded image${preparedFile.failedCount === 1 ? "" : "s"} could not be converted`;
+                }
                 elements.btnPresentationMode.disabled = false;
                 elements.btnPresentationMode.classList.remove("hidden");
                 elements.btnPreviousSlide.classList.remove("hidden");

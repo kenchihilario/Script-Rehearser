@@ -17,9 +17,9 @@ Then open <http://127.0.0.1:5055> if it doesn’t open automatically. Allow came
 
 ## Using it
 
-- Choose one of the sample scripts or add your own.
+- Choose one of the sample scripts or add your own. Select a saved custom script and choose **Edit Script** to update its title, category, target pace, or text; sample scripts stay unchanged.
 - Change the text size and teleprompter speed.
-- Import a PDF or a slide image (PNG, JPG, or WebP). To use a PowerPoint deck, export it as a PDF or images first.
+- Choose **Open PPTX** to load a PowerPoint deck. It opens in a slide-first layout with the script beside it; use the slide buttons or Left/Right and Page Up/Page Down keys to navigate. Presentation files are rendered in your browser. PDF and image slides are also supported.
 - Start, pause, and finish a rehearsal. The app saves session metrics and lets you export a report.
 - View the live transcript and session suggestions in the summary.
 
@@ -31,6 +31,7 @@ The transcript is temporary: it stays in the page during the session and is clea
 - `templates/index.html` — app interface
 - `static/css/style.css` — styles
 - `static/js/app.js` — rehearsal controls and slide/transcript display
+- `static/vendor/` — local PowerPoint rendering dependencies and their licenses
 - `static/js/teleprompter.js` — script display and scrolling
 - `static/js/speech_coach.js` — speech recognition and speech metrics
 - `static/js/audio_coach.js` — pitch and tone metrics

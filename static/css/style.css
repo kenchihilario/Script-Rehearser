@@ -1600,6 +1600,136 @@ body {
     }
 }
 
+/* Slide-first PowerPoint rehearsal layout */
+.btn:disabled,
+.btn[disabled] {
+    opacity: 0.48;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.slide-preview-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    background: #ffffff;
+}
+
+.slide-navigation {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.presentation-mode .studio-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 30vw);
+    gap: 16px;
+    max-width: none;
+    height: calc(100vh - 72px);
+    padding: 14px 18px;
+}
+
+.presentation-mode .diagnostics-section {
+    display: contents;
+}
+
+.presentation-mode .slide-hud-card {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.presentation-mode .diagnostics-section > :not(.slide-hud-card) {
+    display: none;
+}
+
+.presentation-mode .slide-hud-card .hud-card-header {
+    flex: 0 0 auto;
+}
+
+.presentation-mode .slide-preview-frame {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+}
+
+.presentation-mode .slide-preview-image,
+.presentation-mode .slide-preview-pdf {
+    width: 100%;
+    height: 100%;
+}
+
+.presentation-mode .slide-preview-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.presentation-mode .teleprompter-section {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.presentation-mode .live-transcript-panel,
+.presentation-mode .pacing-hud-bar {
+    display: none;
+}
+
+.presentation-mode .prompter-content {
+    padding: 110px 22px;
+    font-size: 21px;
+    line-height: 1.8;
+}
+
+.presentation-mode .prompter-toolbar {
+    height: auto;
+    min-height: 54px;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.presentation-mode .toolbar-settings {
+    gap: 10px;
+}
+
+@media (max-width: 900px) {
+    .presentation-mode .studio-layout {
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 34vw);
+        height: calc(100vh - 116px);
+        overflow: hidden;
+    }
+}
+
+@media (max-width: 680px) {
+    .presentation-mode .studio-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 56vh) minmax(220px, 1fr);
+        height: auto;
+        min-height: calc(100vh - 155px);
+        overflow: visible;
+    }
+
+    .presentation-mode .slide-hud-card {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .presentation-mode .teleprompter-section {
+        grid-column: 1;
+        grid-row: 2;
+        min-height: 320px;
+    }
+}
+
 
 .slide-hud-card .hud-card-header {
     gap: 12px;

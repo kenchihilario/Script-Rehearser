@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         btnPause: document.getElementById("btnPause"),
         btnFinish: document.getElementById("btnFinish"),
         btnNewScript: document.getElementById("btnNewScript"),
+        btnEditScript: document.getElementById("btnEditScript"),
         btnHistory: document.getElementById("btnHistory"),
         liveWpmValue: document.getElementById("liveWpmValue"),
         liveWpmStatus: document.getElementById("liveWpmStatus"),
@@ -63,8 +64,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         slideEmptyState: document.getElementById("slideEmptyState"),
         slideImage: document.getElementById("slideImage"),
         slidePdf: document.getElementById("slidePdf"),
+        slideCanvas: document.getElementById("slideCanvas"),
         slideFileName: document.getElementById("slideFileName"),
         btnClearSlide: document.getElementById("btnClearSlide"),
+        btnPresentationMode: document.getElementById("btnPresentationMode"),
+        btnPreviousSlide: document.getElementById("btnPreviousSlide"),
+        btnNextSlide: document.getElementById("btnNextSlide"),
+        slidePosition: document.getElementById("slidePosition"),
         reportOverallScore: document.getElementById("reportOverallScore"),
         reportGrade: document.getElementById("reportGrade"),
         reportWpm: document.getElementById("reportWpm"),
@@ -82,6 +88,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     let activeCoachTipTimeout = null;
     let lastCompletedReportData = null;
     let slideObjectUrl = null;
+    let pptxViewer = null;
+    let loadedSlideCount = 0;
+    let editingScriptId = null;
 
     const iconNames = new Set([
         "mic", "plus", "chart", "repeat", "alert", "image", "eye", "activity", "target",
@@ -103,44 +112,91 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function clearImportedSlide() {
+        if (pptxViewer) pptxViewer.destroy();
+        pptxViewer = null;
+        loadedSlideCount = 0;
         if (slideObjectUrl) URL.revokeObjectURL(slideObjectUrl);
         slideObjectUrl = null;
         elements.slidePdf.src = "about:blank";
         elements.slideImage.removeAttribute("src");
         elements.slidePdf.classList.add("hidden");
         elements.slideImage.classList.add("hidden");
+        elements.slideCanvas.classList.add("hidden");
         elements.slideEmptyState.classList.remove("hidden");
         elements.slideFileName.textContent = "No slide loaded";
         elements.btnClearSlide.classList.add("hidden");
+        elements.btnPresentationMode.classList.add("hidden");
+        elements.btnPresentationMode.disabled = true;
+        elements.btnPreviousSlide.classList.add("hidden");
+        elements.btnNextSlide.classList.add("hidden");
+        elements.slidePosition.classList.add("hidden");
+        document.body.classList.remove("presentation-mode");
+        elements.btnPresentationMode.textContent = "Presentation mode";
         elements.slideFileInput.value = "";
     }
 
-    function showImportedSlide(file) {
+    function updateSlidePosition() {
+        if (!pptxViewer) return;
+        const current = pptxViewer.getCurrentSlideIndex();
+        elements.slidePosition.textContent = `${current + 1} / ${loadedSlideCount}`;
+        elements.btnPreviousSlide.disabled = current <= 0;
+        elements.btnNextSlide.disabled = current >= loadedSlideCount - 1;
+    }
+
+    async function showImportedSlide(file) {
         clearImportedSlide();
         const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
         const isImage = file.type.startsWith("image/");
-        if (!isPdf && !isImage) {
-            alert("Choose a PDF or a slide image (PNG, JPG, or WebP). Export PowerPoint slides to one of these formats first.");
+        const isPptx = file.name.toLowerCase().endsWith(".pptx") || file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        if (!isPdf && !isImage && !isPptx) {
+            alert("Choose a PowerPoint (.pptx), PDF, or slide image (PNG, JPG, or WebP).");
             return;
         }
 
-        slideObjectUrl = URL.createObjectURL(file);
         elements.slideEmptyState.classList.add("hidden");
         elements.slideFileName.textContent = file.name;
         elements.btnClearSlide.classList.remove("hidden");
-        if (isPdf) {
-            elements.slidePdf.src = `${slideObjectUrl}#toolbar=1&navpanes=0&view=FitH`;
-            elements.slidePdf.classList.remove("hidden");
+        if (isPptx) {
+            try {
+                if (!window.PptxViewJS?.PPTXViewer) throw new Error("PowerPoint viewer did not load");
+                elements.slideCanvas.classList.remove("hidden");
+                pptxViewer = new window.PptxViewJS.PPTXViewer({ canvas: elements.slideCanvas, slideSizeMode: "fit" });
+                await pptxViewer.loadFile(file);
+                await pptxViewer.render();
+                loadedSlideCount = pptxViewer.getSlideCount();
+                elements.btnPresentationMode.disabled = false;
+                elements.btnPresentationMode.classList.remove("hidden");
+                elements.btnPreviousSlide.classList.remove("hidden");
+                elements.btnNextSlide.classList.remove("hidden");
+                elements.slidePosition.classList.remove("hidden");
+                updateSlidePosition();
+                document.body.classList.add("presentation-mode");
+                elements.btnPresentationMode.textContent = "Exit presentation mode";
+                requestAnimationFrame(() => pptxViewer?.render());
+            } catch (error) {
+                console.error("Failed to open PowerPoint:", error);
+                clearImportedSlide();
+                alert("This PowerPoint file could not be opened. Try another .pptx file.");
+            }
         } else {
-            elements.slideImage.src = slideObjectUrl;
-            elements.slideImage.classList.remove("hidden");
+            slideObjectUrl = URL.createObjectURL(file);
+            if (isPdf) {
+                elements.slidePdf.src = `${slideObjectUrl}#toolbar=1&navpanes=0&view=FitH`;
+                elements.slidePdf.classList.remove("hidden");
+            } else {
+                elements.slideImage.src = slideObjectUrl;
+                elements.slideImage.classList.remove("hidden");
+            }
         }
     }
     async function loadScripts() {
         try {
             const res = await fetch("/api/scripts");
             const data = await res.json();
-            allScripts = data.all || [];
+            allScripts = [
+                ...(data.samples || []).map(script => ({ ...script, isUserScript: false })),
+                ...(data.user_scripts || []).map(script => ({ ...script, isUserScript: true }))
+            ];
 
             elements.scriptSelect.innerHTML = "";
             allScripts.forEach(script => {
@@ -160,6 +216,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function selectScript(script) {
         currentScript = script;
+        elements.btnEditScript.disabled = !(script.isUserScript || String(script.id || "").startsWith("custom_"));
+        elements.btnEditScript.title = elements.btnEditScript.disabled
+            ? "Built-in sample scripts cannot be edited. Create a custom script to make your own version."
+            : "Edit the selected custom script";
         elements.targetWpmInput.value = script.targetWpm || 140;
         teleprompter.loadScript(script.text, script.targetWpm || 140);
         const stats = teleprompter.getStats();
@@ -483,10 +543,29 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
     elements.btnNewScript.addEventListener("click", () => {
+        editingScriptId = null;
+        document.getElementById("scriptModalTitle").textContent = "Create Custom Rehearsal Script";
+        elements.btnSaveCustomScript.textContent = "Save & Rehearse";
+        document.getElementById("newScriptTitle").value = "";
+        document.getElementById("newScriptCategory").value = "";
+        document.getElementById("newScriptWpm").value = "140";
+        document.getElementById("newScriptText").value = "";
+        elements.scriptModal.classList.add("active");
+    });
+    elements.btnEditScript.addEventListener("click", () => {
+        if (!currentScript || !(currentScript.isUserScript || String(currentScript.id).startsWith("custom_"))) return;
+        editingScriptId = currentScript.id;
+        document.getElementById("scriptModalTitle").textContent = "Edit Rehearsal Script";
+        elements.btnSaveCustomScript.textContent = "Save Changes";
+        document.getElementById("newScriptTitle").value = currentScript.title || "";
+        document.getElementById("newScriptCategory").value = currentScript.category || "Custom";
+        document.getElementById("newScriptWpm").value = currentScript.targetWpm || 140;
+        document.getElementById("newScriptText").value = currentScript.text || "";
         elements.scriptModal.classList.add("active");
     });
     elements.btnCloseScriptModal.addEventListener("click", () => {
         elements.scriptModal.classList.remove("active");
+        editingScriptId = null;
     });
     elements.btnSaveCustomScript.addEventListener("click", async () => {
         const title = document.getElementById("newScriptTitle").value.trim() || "Custom Script";
@@ -500,20 +579,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         try {
-            const res = await fetch("/api/scripts", {
-                method: "POST",
+            const saveId = editingScriptId;
+            const res = await fetch(saveId ? `/api/scripts/${encodeURIComponent(saveId)}` : "/api/scripts", {
+                method: saveId ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ title, category, targetWpm: wpm, text })
             });
             const data = await res.json();
             if (data.script) {
                 await loadScripts();
-                selectScript(data.script);
+                selectScript(allScripts.find(script => script.id === data.script.id) || data.script);
                 elements.scriptSelect.value = data.script.id;
                 elements.scriptModal.classList.remove("active");
+                editingScriptId = null;
+            } else {
+                alert(data.error || "The script could not be saved. Please try again.");
             }
         } catch (e) {
             console.error("Save script error:", e);
+            alert("The script could not be saved. Please try again.");
         }
     });
     elements.btnHistory.addEventListener("click", async () => {
@@ -570,8 +654,38 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (file) showImportedSlide(file);
     });
     elements.btnClearSlide.addEventListener("click", clearImportedSlide);
+    elements.btnPresentationMode.addEventListener("click", () => {
+        if (!pptxViewer) return;
+        const enabled = document.body.classList.toggle("presentation-mode");
+        elements.btnPresentationMode.textContent = enabled ? "Exit presentation mode" : "Presentation mode";
+        if (enabled) requestAnimationFrame(() => pptxViewer?.render());
+    });
+    elements.btnPreviousSlide.addEventListener("click", async () => {
+        if (!pptxViewer) return;
+        await pptxViewer.previousSlide();
+        updateSlidePosition();
+    });
+    elements.btnNextSlide.addEventListener("click", async () => {
+        if (!pptxViewer) return;
+        await pptxViewer.nextSlide();
+        updateSlidePosition();
+    });
+    document.addEventListener("keydown", async (event) => {
+        if (!pptxViewer || !document.body.classList.contains("presentation-mode") || event.altKey || event.ctrlKey || event.metaKey) return;
+        if (event.target instanceof HTMLElement && (event.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(event.target.tagName))) return;
+        if (event.key === "ArrowRight" || event.key === "PageDown") {
+            event.preventDefault();
+            await pptxViewer.nextSlide();
+            updateSlidePosition();
+        } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+            event.preventDefault();
+            await pptxViewer.previousSlide();
+            updateSlidePosition();
+        }
+    });
     window.addEventListener("beforeunload", () => {
         if (slideObjectUrl) URL.revokeObjectURL(slideObjectUrl);
+        if (pptxViewer) pptxViewer.destroy();
     });
     elements.targetWpmInput.addEventListener("change", (e) => {
         const wpm = parseInt(e.target.value) || 140;

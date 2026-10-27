@@ -65,9 +65,7 @@ def save_script():
         return jsonify({"error": "Script text cannot be empty"}), 400
 
     user_scripts = load_json(SCRIPTS_FILE, [])
-    script_id = data.get("id") or f"custom_{uuid.uuid4().hex[:8]}"
-
-    existing_idx = next((i for i, s in enumerate(user_scripts) if s.get("id") == script_id), None)
+    script_id = f"custom_{uuid.uuid4().hex[:8]}"
     script_obj = {
         "id": script_id,
         "title": title,
@@ -78,11 +76,42 @@ def save_script():
         "updatedAt": datetime.now().isoformat()
     }
 
-    if existing_idx is not None:
-        user_scripts[existing_idx] = script_obj
-    else:
-        user_scripts.insert(0, script_obj)
+    user_scripts.insert(0, script_obj)
 
+    save_json(SCRIPTS_FILE, user_scripts)
+    return jsonify({"success": True, "script": script_obj})
+
+
+@app.route("/api/scripts/<script_id>", methods=["PUT"])
+def update_script(script_id):
+    data = request.json or {}
+    title = data.get("title", "").strip() or "Untitled Script"
+    text = data.get("text", "").strip()
+    category = data.get("category", "Custom").strip() or "Custom"
+    try:
+        target_wpm = int(data.get("targetWpm", 140))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Target WPM must be a number"}), 400
+    desc = data.get("description", "")
+
+    if not text:
+        return jsonify({"error": "Script text cannot be empty"}), 400
+
+    user_scripts = load_json(SCRIPTS_FILE, [])
+    existing_idx = next((i for i, script in enumerate(user_scripts) if script.get("id") == script_id), None)
+    if existing_idx is None:
+        return jsonify({"error": "Only saved custom scripts can be edited"}), 404
+
+    script_obj = {
+        **user_scripts[existing_idx],
+        "title": title,
+        "text": text,
+        "category": category,
+        "targetWpm": target_wpm,
+        "description": desc or f"{len(text.split())} words custom rehearsal script.",
+        "updatedAt": datetime.now().isoformat()
+    }
+    user_scripts[existing_idx] = script_obj
     save_json(SCRIPTS_FILE, user_scripts)
     return jsonify({"success": True, "script": script_obj})
 
